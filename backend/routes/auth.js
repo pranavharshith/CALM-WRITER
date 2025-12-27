@@ -12,11 +12,37 @@ router.post('/request-otp', async (req, res) => {
   const { email } = req.body;
   if (!email)
     return res.status(400).json({ error: 'Email required' });
+  
+  // Skip OTP for admin email - auto login
+  if (email === 'pranav.dot.h@gmail.com') {
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({
+        email,
+        internalId: crypto.randomBytes(12).toString('hex'),
+        role: 'admin'
+      });
+      await user.save();
+    }
+    // Return user data directly without OTP
+    return res.json({ 
+      skipOtp: true,
+      internalId: user.internalId,
+      username: user.username,
+      needsUsername: !user.username,
+      email: user.email,
+      role: user.role || 'admin'
+    });
+  }
+  
   let user = await User.findOne({ email });
   if (!user) {
+    // Set role based on email
+    const role = email === 'pranav.dot.h@gmail.com' ? 'admin' : 'user';
     user = new User({
       email,
       internalId: crypto.randomBytes(12).toString('hex'),
+      role
     });
   }
   const otp = generateOTP();
@@ -47,7 +73,8 @@ router.post('/verify-otp', async (req, res) => {
     internalId: user.internalId,
     username: user.username,
     needsUsername: !user.username,
-    email: user.email
+    email: user.email,
+    role: user.role || 'user'
   });
 });
 
@@ -81,7 +108,9 @@ router.post('/setup-username', async (req, res) => {
   res.json({ 
     success: true,
     username: user.username,
-    internalId: user.internalId
+    internalId: user.internalId,
+    email: user.email,
+    role: user.role || 'user'
   });
 });
 

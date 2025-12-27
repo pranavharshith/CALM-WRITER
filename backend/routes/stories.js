@@ -63,7 +63,7 @@ router.get('/mine', requireSession, async (req, res) => {
 // GET /stories/random: Get random story for reader (excluding own)
 router.get('/random', requireSession, async (req, res) => {
   try {
-    const stories = await Story.find({ internalAuthorId: { $ne: req.internalId } });
+    const stories = await Story.find({ internalAuthorId: { $ne: req.internalId }, hidden: false });
     if (!stories.length) {
       return res.json({ error: 'No stories available' });
     }
@@ -77,7 +77,7 @@ router.get('/random', requireSession, async (req, res) => {
 // GET /stories/next: Get next story for reader (excluding own, sort by resonance)
 router.get('/next', requireSession, async (req, res) => {
   // Find all non-own stories, sort by: completion rate DESC, avg time spent DESC, reactions DESC
-  const allStories = await Story.find({ internalAuthorId: { $ne: req.internalId } });
+  const allStories = await Story.find({ internalAuthorId: { $ne: req.internalId }, hidden: false });
   if (!allStories.length) return res.json({ none: true });
 
   // Load resonance metrics
@@ -122,7 +122,7 @@ router.get('/feed', requireSession, async (req, res) => {
     const sort = req.query.sort || 'latest'; // latest, popular, trending
     const skip = (page - 1) * limit;
     
-    let findQuery = {};
+    let findQuery = { hidden: false }; // Exclude hidden stories
     let sortQuery = {};
     
     switch (sort) {
@@ -132,7 +132,7 @@ router.get('/feed', requireSession, async (req, res) => {
       case 'trending':
         // Stories with likes in last 7 days
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        findQuery = { createdAt: { $gte: weekAgo } };
+        findQuery = { createdAt: { $gte: weekAgo }, hidden: false };
         sortQuery = { likes: -1, createdAt: -1 };
         break;
       default:
@@ -159,7 +159,7 @@ router.get('/feed', requireSession, async (req, res) => {
       };
     }));
     
-    const totalStories = await Story.countDocuments({});
+    const totalStories = await Story.countDocuments({ hidden: false });
     
     res.json({
       stories: enrichedStories,
@@ -235,6 +235,112 @@ router.post('/like', requireSession, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to like story' });
+  }
+});
+
+// GET /stories/search: Search stories with filters
+router.get('/search', requireSession, async (req, res) => {
+  try {
+    const { 
+      q, // search query (title, content, author)
+      minLikes, 
+      maxLikes, 
+      minWords, 
+      maxWords,
+      dateFrom, // ISO date string
+      dateTo, // ISO date string
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    let findQuery = { hidden: false };
+
+    // Text search: search in title, text, or author username
+    if (q && q.trim()) {
+      const searchTerm = q.trim();
+      
+      // First, find users matching the search term
+      const matchingUsers = await User.find({
+        username: { $regex: searchTerm, $options: 'i' }
+      }).select('internalId');
+      const matchingUserIds = matchingUsers.map(u => u.internalId);
+
+      // Build text search query
+      const textSearchQuery = {
+        $or: [
+          { title: { $regex: searchTerm, $options: 'i' } },
+          { text: { $regex: searchTerm, $options: 'i' } },
+          ...(matchingUserIds.length > 0 ? [{ internalAuthorId: { $in: matchingUserIds } }] : [])
+        ]
+      };
+
+      // If we have other filters, combine with $and, otherwise use text search directly
+      if (minLikes || maxLikes || minWords || maxWords || dateFrom || dateTo) {
+        if (!findQuery.$and) findQuery.$and = [];
+        findQuery.$and.push(textSearchQuery);
+      } else {
+        Object.assign(findQuery, textSearchQuery);
+      }
+    }
+
+    // Filter by likes
+    if (minLikes || maxLikes) {
+      findQuery.likes = {};
+      if (minLikes) findQuery.likes.$gte = parseInt(minLikes);
+      if (maxLikes) findQuery.likes.$lte = parseInt(maxLikes);
+    }
+
+    // Filter by word count
+    if (minWords || maxWords) {
+      findQuery.wordCount = {};
+      if (minWords) findQuery.wordCount.$gte = parseInt(minWords);
+      if (maxWords) findQuery.wordCount.$lte = parseInt(maxWords);
+    }
+
+    // Filter by date range
+    if (dateFrom || dateTo) {
+      findQuery.createdAt = {};
+      if (dateFrom) findQuery.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) findQuery.createdAt.$lte = new Date(dateTo);
+    }
+
+    const stories = await Story.find(findQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Enrich with author usernames
+    const enrichedStories = await Promise.all(stories.map(async (story) => {
+      const author = await User.findOne({ internalId: story.internalAuthorId });
+      return {
+        ...story,
+        authorUsername: author?.username || 'Anonymous',
+        preview: story.text.substring(0, 200) + (story.text.length > 200 ? '...' : ''),
+        isLikedByUser: (story.likedBy || []).includes(req.internalId),
+        likes: story.likes || 0,
+        likedBy: story.likedBy || []
+      };
+    }));
+
+    const totalStories = await Story.countDocuments(findQuery);
+
+    res.json({
+      stories: enrichedStories,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalStories,
+        pages: Math.ceil(totalStories / parseInt(limit)),
+        hasNext: skip + parseInt(limit) < totalStories,
+        hasPrev: parseInt(page) > 1
+      },
+      query: q || ''
+    });
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Failed to search stories' });
   }
 });
 

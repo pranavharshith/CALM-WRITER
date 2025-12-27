@@ -34,8 +34,8 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Calm Stories API', 
-    version: '1.0.0',
-    endpoints: ['/stories', '/reactions', '/reads', '/auth', '/admin']
+    version: '2.0.0',
+    endpoints: ['/stories', '/reactions', '/reads', '/auth', '/admin', '/threads', '/leaderboards', '/moderation', '/bookmarks']
   });
 });
 
@@ -51,6 +51,11 @@ app.use('/users', require('./routes/users'));
 app.use('/admin', require('./routes/admin'));
 app.use('/reads', require('./routes/sessions'));
 app.use('/reactions', require('./routes/reactions'));
+app.use('/threads', require('./routes/threads'));
+app.use('/leaderboards', require('./routes/leaderboards'));
+app.use('/moderation', require('./routes/moderation'));
+app.use('/bookmarks', require('./routes/bookmarks'));
+app.use('/follows', require('./routes/follows'));
 
 // Handle any other 404s silently (for browser/DevTools requests)
 app.use((req, res) => {

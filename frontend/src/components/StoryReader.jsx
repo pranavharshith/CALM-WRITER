@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ProgressBar from './ProgressBar';
 import { trackReadSession } from '../api/api';
 
-export default function StoryReader({ story, onReact, onBack }) {
+export default function StoryReader({ story, onBack }) {
   const [percentRead, setPercentRead] = useState(0);
   const [canReact, setCanReact] = useState(false);
   const ref = useRef(null);
@@ -76,20 +76,6 @@ export default function StoryReader({ story, onReact, onBack }) {
           }}>
             {story.text}
           </div>
-          <button 
-            style={{
-              padding:'10px 34px',
-              fontSize:'1em',
-              background: canReact ? '#374' : '#bbb',
-              border:'none',
-              borderRadius:5,
-              color:'#fff',
-              cursor: canReact ? 'pointer' : 'not-allowed'
-            }} 
-            disabled={!canReact} 
-            onClick={onReact}>
-            React
-          </button>
         </div>
       </div>
     </div>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { fetchCommunityFeed, fetchFeaturedStory } from '../api/api';
+import { fetchCommunityFeed, fetchFeaturedStory, searchStories } from '../api/api';
 import StoryCard from './StoryCard';
 import FeaturedBanner from './FeaturedBanner';
 import Leaderboard from './Leaderboard';
+import SearchBar from './SearchBar';
 
-export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfile }) {
+export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfile, onViewThread, onModeration }) {
   const [stories, setStories] = useState([]);
   const [featuredStory, setFeaturedStory] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,11 +13,16 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
   const [sort, setSort] = useState('latest');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFilters, setSearchFilters] = useState({});
 
   useEffect(() => {
-    loadFeed();
-    loadFeaturedStory();
-  }, [sort]);
+    if (!isSearching) {
+      loadFeed();
+      loadFeaturedStory();
+    }
+  }, [sort, isSearching]);
 
   const loadFeed = async (pageNum = 1, reset = true) => {
     try {
@@ -70,6 +76,52 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
     ));
   };
 
+  const handleSearch = async (query, filters, pageNum = 1) => {
+    try {
+      setLoading(pageNum === 1);
+      setIsSearching(true);
+      setSearchQuery(query);
+      setSearchFilters(filters);
+      
+      const result = await searchStories(query, filters, pageNum);
+      
+      if (result && result.stories) {
+        if (pageNum === 1) {
+          setStories(result.stories);
+        } else {
+          setStories(prev => [...prev, ...result.stories]);
+        }
+        
+        setHasMore(result.pagination?.hasNext || false);
+        setPage(pageNum);
+      } else {
+        setStories([]);
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      setError('Failed to search stories');
+      setStories([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setIsSearching(false);
+    setSearchQuery('');
+    setSearchFilters({});
+    setPage(1);
+    loadFeed(1, true);
+  };
+
+  const handleLoadMoreSearch = () => {
+    if (!loading && hasMore && isSearching) {
+      handleSearch(searchQuery, searchFilters, page + 1);
+    }
+  };
+
   if (loading && stories.length === 0) {
     return (
       <div style={{
@@ -77,7 +129,8 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#fefefd'
+        background: '#fefefd',
+        color: '#333'
       }}>
         <div style={{ opacity: 0.6 }}>Loading community stories...</div>
       </div>
@@ -87,12 +140,13 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#fefefd'
+      background: '#fefefd',
+      color: '#333'
     }}>
       {/* Header */}
       <div style={{
         background: '#fff',
-        borderBottom: '1px solid #eee',
+        borderBottom: '1px solid #ddd',
         padding: '15px 20px',
         position: 'sticky',
         top: 0,
@@ -108,7 +162,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
           <div style={{
             fontSize: '1.3em',
             fontWeight: 'normal',
-            opacity: 0.8
+            color: '#333'
           }}>
             Calm Stories
           </div>
@@ -118,7 +172,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
               onClick={onWriteStory}
               style={{
                 padding: '8px 16px',
-                background: '#222',
+                background: '#007bff',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
@@ -128,68 +182,94 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
               Write
             </button>
             
-            <button
-              onClick={() => onProfile(user.username)}
-              style={{
-                padding: '8px 16px',
-                background: 'transparent',
-                color: '#666',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '0.9em',
-                cursor: 'pointer'
-              }}>
-              @{user.username}
-            </button>
+            {user?.username && (
+              <button
+                onClick={() => onProfile(user.username)}
+                style={{
+                  padding: '8px 16px',
+                  background: 'transparent',
+                  color: '#666',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '0.9em',
+                  cursor: 'pointer'
+                }}>
+                @{user.username}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div style={{
-        maxWidth: '1200px',
+        maxWidth: '1240px',
         margin: '0 auto',
         padding: '20px',
         display: 'flex',
-        gap: '20px'
+        gap: '24px',
+        alignItems: 'flex-start'
       }}>
         {/* Main Content */}
         <div style={{
           flex: 1,
-          maxWidth: '800px'
+          maxWidth: '800px',
+          minWidth: 0
         }}>
-        {/* Featured Story */}
-        {featuredStory && (
+        {/* Search Bar */}
+        <SearchBar 
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+          isSearching={isSearching}
+        />
+
+        {/* Sort Options - hidden when searching */}
+        {!isSearching && (
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            marginBottom: '30px'
+          }}>
+            {['latest', 'popular', 'trending'].map(sortOption => (
+              <button
+                key={sortOption}
+                onClick={() => setSort(sortOption)}
+                style={{
+                  padding: '8px 16px',
+                  background: sort === sortOption ? '#f0f0f0' : 'transparent',
+                  color: sort === sortOption ? '#333' : '#666',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '0.9em',
+                  cursor: 'pointer',
+                  textTransform: 'capitalize'
+                }}>
+                {sortOption}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search Results Header */}
+        {isSearching && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '12px',
+            background: '#f8f9fa',
+            borderRadius: '6px',
+            fontSize: '0.9em',
+            color: '#666'
+          }}>
+            {searchQuery ? `Search results for "${searchQuery}"` : 'Filtered results'}
+          </div>
+        )}
+        
+        {/* Featured Story - hidden when searching */}
+        {!isSearching && featuredStory && (
           <FeaturedBanner 
             story={featuredStory} 
             onRead={() => onReadStory(featuredStory)}
           />
         )}
-
-        {/* Sort Options */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '30px',
-          marginTop: featuredStory ? '30px' : '0'
-        }}>
-          {['latest', 'popular', 'trending'].map(sortOption => (
-            <button
-              key={sortOption}
-              onClick={() => setSort(sortOption)}
-              style={{
-                padding: '8px 16px',
-                background: sort === sortOption ? '#f0f0f0' : 'transparent',
-                color: sort === sortOption ? '#222' : '#666',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '0.9em',
-                cursor: 'pointer',
-                textTransform: 'capitalize'
-              }}>
-              {sortOption}
-            </button>
-          ))}
-        </div>
 
         {/* Stories */}
         {error && (
@@ -210,7 +290,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
             opacity: 0.5,
             fontSize: '1.1em'
           }}>
-            No stories yet. Be the first to share!
+            {isSearching ? 'No stories found matching your search.' : 'No stories yet. Be the first to share!'}
           </div>
         ) : (
           <div style={{
@@ -224,7 +304,15 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
                 story={story}
                 onRead={() => onReadStory(story)}
                 onLike={handleStoryUpdate}
-                onAuthorClick={() => onProfile(story.authorUsername)}
+                onAuthorClick={() => {
+                  // Only navigate if this story is tied to a real, named user
+                  if (
+                    story.authorUsername &&
+                    story.authorUsername !== 'Anonymous'
+                  ) {
+                    onProfile(story.authorUsername);
+                  }
+                }}
               />
             ))}
           </div>
@@ -237,7 +325,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
               marginTop: '30px'
             }}>
               <button
-                onClick={handleLoadMore}
+                onClick={isSearching ? handleLoadMoreSearch : handleLoadMore}
                 disabled={loading}
                 style={{
                   padding: '12px 24px',
@@ -254,12 +342,24 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
           )}
         </div>
 
-        {/* Sidebar with Leaderboard */}
-        <div style={{
-          width: '280px',
-          flexShrink: 0
-        }}>
-          <Leaderboard onUserClick={onProfile} />
+        {/* Sidebar with Leaderboard (right rail) */}
+        <div
+          style={{
+            width: '380px',
+            flexShrink: 0
+          }}
+        >
+          <div
+            style={{
+              position: 'sticky',
+              // Match below-the-header offset so the rail sits under the header bar
+              top: 80,
+              height: 'calc(100vh - 80px)',
+              overflowY: 'auto'
+            }}
+          >
+            <Leaderboard onUserClick={onProfile} />
+          </div>
         </div>
       </div>
     </div>

@@ -11,6 +11,10 @@ const StorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   wordCount: { type: Number },
   locked: { type: Boolean, default: true }, // cannot edit/delete by author
+  // Thread management
+  threadLocked: { type: Boolean, default: false }, // Moderator can lock thread
+  hidden: { type: Boolean, default: false }, // Moderator can hide story
+  hiddenReason: { type: String }, // Why it was hidden
 }, {
   timestamps: true
 });

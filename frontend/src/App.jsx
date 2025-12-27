@@ -6,16 +6,24 @@ import StoryReader from './components/StoryReader';
 import WriteScreen from './components/WriteScreen';
 import PrivateArchive from './components/PrivateArchive';
 import UserProfile from './components/UserProfile';
-import Reactions from './components/Reactions';
-import { fetchCurrentUser, submitReaction, trackReadSession } from './api/api';
+import ThreadView from './components/ThreadView';
+import ModerationDashboard from './components/ModerationDashboard';
+import Bookmarks from './components/Bookmarks';
+import MyStories from './components/MyStories';
+import FollowingPage from './components/FollowingPage';
+import UserStories from './components/UserStories';
+import { fetchCurrentUser, trackReadSession } from './api/api';
 
 export default function App() {
-  const [screen, setScreen] = useState('loading'); // loading, login, username-setup, community, read, write, profile, react
+  const [screen, setScreen] = useState('loading'); // loading, login, username-setup, community, read, write, profile, bookmarks, thread, moderation, my-stories, following, user-stories
   const [currentStory, setCurrentStory] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [profileUsername, setProfileUsername] = useState('');
+  const [currentThreadId, setCurrentThreadId] = useState(null);
+  const [storiesUsername, setStoriesUsername] = useState('');
+  const [followingUsername, setFollowingUsername] = useState('');
 
   useEffect(() => {
     checkAuthStatus();
@@ -47,7 +55,6 @@ export default function App() {
           }
         } catch (userError) {
           // User doesn't exist on server, clear local data
-          console.log('User not found on server, clearing local data');
           localStorage.removeItem('calmstories_user');
           localStorage.removeItem('calmstories_internal_id');
           setScreen('login');
@@ -82,27 +89,6 @@ export default function App() {
     setScreen('read');
   };
 
-  const handleReact = () => {
-    if (currentStory) {
-      // Track read completion
-      trackReadSession(currentStory._id, 100);
-      setScreen('react');
-    }
-  };
-
-  const handleReactionSubmit = async (reactionType) => {
-    if (currentStory) {
-      try {
-        await submitReaction(currentStory._id, reactionType);
-        // Go back to community feed
-        setScreen('community');
-        setCurrentStory(null);
-      } catch (error) {
-        console.error('Failed to submit reaction:', error);
-      }
-    }
-  };
-
   const handleWriteStory = () => {
     setScreen('write');
   };
@@ -116,10 +102,39 @@ export default function App() {
     setScreen('community');
     setCurrentStory(null);
     setProfileUsername('');
+    setCurrentThreadId(null);
+  };
+
+  const handleViewBookmarks = () => {
+    setScreen('bookmarks');
+  };
+
+  const handleViewMyStories = () => {
+    setScreen('my-stories');
+  };
+
+  const handleViewFollowing = (username) => {
+    setFollowingUsername(username);
+    setScreen('following');
+  };
+
+  const handleViewUserStories = (username) => {
+    setStoriesUsername(username);
+    setScreen('user-stories');
+  };
+
+  const handleViewThread = (storyId) => {
+    setCurrentThreadId(storyId);
+    setScreen('thread');
+  };
+
+  const handleModeration = () => {
+    setScreen('moderation');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('calmstories_user');
+    localStorage.removeItem('calmstories_internal_id');
     setUser(null);
     setScreen('login');
   };
@@ -176,20 +191,15 @@ export default function App() {
           onReadStory={handleReadStory}
           onWriteStory={handleWriteStory}
           onProfile={handleProfile}
+          onViewThread={handleViewThread}
+          onModeration={handleModeration}
         />
       )}
       
       {screen === 'read' && currentStory && (
         <StoryReader 
           story={currentStory}
-          onReact={handleReact}
           onBack={handleBackToCommunity}
-        />
-      )}
-      
-      {screen === 'react' && (
-        <Reactions 
-          onReactionSubmit={handleReactionSubmit}
         />
       )}
       
@@ -206,6 +216,68 @@ export default function App() {
           username={profileUsername}
           onBack={handleBackToCommunity}
           onReadStory={handleReadStory}
+          currentUser={user}
+          onLogout={handleLogout}
+          onViewBookmarks={handleViewBookmarks}
+          onViewMyStories={handleViewMyStories}
+          onViewFollowing={handleViewFollowing}
+          onViewUserStories={handleViewUserStories}
+        />
+      )}
+      
+      {screen === 'bookmarks' && (
+        <Bookmarks 
+          onBack={() => {
+            if (profileUsername) {
+              setScreen('profile');
+            } else {
+              handleBackToCommunity();
+            }
+          }}
+          onReadStory={handleReadStory}
+          onProfile={handleProfile}
+        />
+      )}
+      
+      {screen === 'thread' && currentThreadId && (
+        <ThreadView 
+          storyId={currentThreadId}
+          user={user}
+          onBack={handleBackToCommunity}
+        />
+      )}
+      
+      {screen === 'user-stories' && (
+        <UserStories
+          username={storiesUsername}
+          onBack={() => setScreen('profile')}
+          onReadStory={handleReadStory}
+          onProfile={handleProfile}
+          currentUser={user}
+        />
+      )}
+
+      {screen === 'following' && (
+        <FollowingPage
+          username={followingUsername}
+          onBack={() => setScreen('profile')}
+          onProfile={handleProfile}
+        />
+      )}
+
+      {screen === 'my-stories' && (
+        <MyStories
+          user={user}
+          onBack={() => setScreen('profile')}
+          onReadStory={handleReadStory}
+          onProfile={handleProfile}
+        />
+      )}
+
+      {screen === 'moderation' && (
+        <ModerationDashboard 
+          user={user}
+          onBack={handleBackToCommunity}
         />
       )}
     </div>

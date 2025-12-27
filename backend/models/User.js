@@ -5,6 +5,7 @@ const UserSchema = new mongoose.Schema({
   internalId: { type: String, required: true, unique: true },
   username: { type: String, unique: true, sparse: true }, // Community username
   displayName: { type: String }, // Optional display name
+  role: { type: String, enum: ['user', 'moderator', 'admin'], default: 'user' }, // Role system
   joinedAt: { type: Date, default: Date.now },
   otp: { type: String }, // last sent OTP (mock/demo mode)
   otpExpiresAt: { type: Date },

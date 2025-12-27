@@ -20,6 +20,16 @@ export default function LoginScreen({ onLogin }) {
 
     try {
       const result = await requestOTP(email.trim());
+      
+      // Check if OTP was skipped (admin email)
+      if (result.skipOtp && result.internalId) {
+        // Auto-login for admin: persist canonical internalId from server
+        localStorage.setItem('calmstories_user', JSON.stringify(result));
+        localStorage.setItem('calmstories_internal_id', result.internalId);
+        onLogin(result);
+        return;
+      }
+      
       if (result.success) {
         setStep('otp');
       } else {
@@ -45,8 +55,9 @@ export default function LoginScreen({ onLogin }) {
     try {
       const result = await verifyOTP(email, otp.trim());
       if (result.internalId) {
-        // Store user info
+        // Store user info and canonical internalId from server
         localStorage.setItem('calmstories_user', JSON.stringify(result));
+        localStorage.setItem('calmstories_internal_id', result.internalId);
         onLogin(result);
       } else {
         setError(result.error || 'Invalid OTP');

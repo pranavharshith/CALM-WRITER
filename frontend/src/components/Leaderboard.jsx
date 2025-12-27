@@ -30,33 +30,23 @@ export default function Leaderboard({ onUserClick }) {
     '1w': 'Last Week'
   };
 
-  const getRankEmoji = (index) => {
-    switch (index) {
-      case 0: return '🥇';
-      case 1: return '🥈';
-      case 2: return '🥉';
-      default: return `${index + 1}.`;
-    }
-  };
-
   return (
     <div style={{
       background: '#fff',
       borderRadius: '8px',
       padding: '20px',
       boxShadow: '0 1px 4px #efefee',
-      height: 'fit-content',
-      position: 'sticky',
-      top: '100px'
+      width: '100%',
+      border: '1px solid #ddd'
     }}>
       <div style={{
         fontSize: '1.2em',
         fontWeight: '500',
         marginBottom: '16px',
         color: '#333',
-        textAlign: 'center'
+        textAlign: 'left'
       }}>
-        🏆 Top Writers
+        Top Writers
       </div>
 
       {/* Period Selector */}
@@ -121,7 +111,7 @@ export default function Leaderboard({ onUserClick }) {
             fontSize: '0.8em',
             color: '#666',
             marginBottom: '12px',
-            textAlign: 'center'
+            textAlign: 'left'
           }}>
             {periodLabels[period]}
           </div>
@@ -155,9 +145,10 @@ export default function Leaderboard({ onUserClick }) {
                 <div style={{
                   fontSize: '0.9em',
                   minWidth: '24px',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  color: '#999'
                 }}>
-                  {getRankEmoji(index)}
+                  {index + 1}.
                 </div>
                 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -186,7 +177,39 @@ export default function Leaderboard({ onUserClick }) {
                   fontSize: '0.8em',
                   color: '#666'
                 }}>
-                  <span>👍</span>
+                  <div style={{
+                    position: 'relative',
+                    width: '12px',
+                    height: '12px',
+                    transform: 'rotate(-45deg)',
+                    marginRight: '2px'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      width: '12px',
+                      height: '12px',
+                      background: '#e74c3c',
+                      borderRadius: '3px'
+                    }} />
+                    <div style={{
+                      position: 'absolute',
+                      width: '12px',
+                      height: '12px',
+                      background: '#e74c3c',
+                      borderRadius: '50%',
+                      top: '-6px',
+                      left: '0'
+                    }} />
+                    <div style={{
+                      position: 'absolute',
+                      width: '12px',
+                      height: '12px',
+                      background: '#e74c3c',
+                      borderRadius: '50%',
+                      left: '6px',
+                      top: '0'
+                    }} />
+                  </div>
                   <span>{user.totalLikes}</span>
                 </div>
               </div>

@@ -67,7 +67,8 @@ router.get('/me', requireSession, async (req, res) => {
       displayName: user.displayName,
       email: user.email,
       joinedAt: user.joinedAt,
-      needsUsername: !user.username
+      needsUsername: !user.username,
+      role: user.role || 'user'
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user info' });

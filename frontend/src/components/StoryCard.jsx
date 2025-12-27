@@ -1,8 +1,22 @@
-import React, { useState } from 'react';
-import { likeStory } from '../api/api';
+import React, { useState, useEffect } from 'react';
+import { likeStory, bookmarkStory, unbookmarkStory, checkBookmark } from '../api/api';
 
-export default function StoryCard({ story, onRead, onLike, onAuthorClick }) {
+export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, disableLike = false }) {
+
   const [liking, setLiking] = useState(false);
+  const [bookmarking, setBookmarking] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
+  useEffect(() => {
+    // Check if story is bookmarked on mount
+    if (story._id) {
+      checkBookmark(story._id).then(result => {
+        setIsBookmarked(result.bookmarked);
+      }).catch(() => {
+        // Silently fail if check fails
+      });
+    }
+  }, [story._id]);
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -26,7 +40,37 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick }) {
 
   const handleAuthorClick = (e) => {
     e.stopPropagation();
-    onAuthorClick();
+    if (onAuthorClick) {
+      onAuthorClick();
+    }
+  };
+
+  const handleBookmark = async (e) => {
+    e.stopPropagation();
+    if (bookmarking) return;
+
+    setBookmarking(true);
+    try {
+      if (isBookmarked) {
+        const result = await unbookmarkStory(story._id);
+        if (result.success) {
+          setIsBookmarked(false);
+          // Notify parent if bookmark was removed
+          if (onBookmarkRemoved) {
+            onBookmarkRemoved(story._id);
+          }
+        }
+      } else {
+        const result = await bookmarkStory(story._id);
+        if (result.success) {
+          setIsBookmarked(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle bookmark:', error);
+    } finally {
+      setBookmarking(false);
+    }
   };
 
   const timeAgo = (date) => {
@@ -55,15 +99,15 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick }) {
         boxShadow: '0 1px 4px #efefee',
         cursor: 'pointer',
         transition: 'box-shadow 0.2s ease',
-        border: '1px solid transparent'
+        border: '1px solid #ddd'
       }}
       onMouseEnter={(e) => {
-        e.target.style.boxShadow = '0 2px 8px #e0e0e0';
+        e.currentTarget.style.boxShadow = '0 2px 8px #e0e0e0';
       }}
       onMouseLeave={(e) => {
-        e.target.style.boxShadow = '0 1px 4px #efefee';
-      }}>
-      
+        e.currentTarget.style.boxShadow = '0 1px 4px #efefee';
+      }}
+    >
       {/* Header */}
       <div style={{
         display: 'flex',
@@ -81,58 +125,156 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick }) {
             style={{
               background: 'none',
               border: 'none',
-              color: '#666',
+              color: onAuthorClick ? '#666' : '#999',
               fontSize: '0.9em',
-              cursor: 'pointer',
+              cursor: onAuthorClick ? 'pointer' : 'default',
               padding: '0',
               textDecoration: 'none'
             }}
             onMouseEnter={(e) => {
-              e.target.style.textDecoration = 'underline';
+              if (onAuthorClick) {
+                e.target.style.textDecoration = 'underline';
+              }
             }}
             onMouseLeave={(e) => {
               e.target.style.textDecoration = 'none';
-            }}>
+            }}
+          >
             @{story.authorUsername}
           </button>
-          
           <span style={{
-            color: '#999',
+            color: '#666',
             fontSize: '0.8em'
           }}>
             {timeAgo(story.createdAt)}
           </span>
         </div>
 
-        <button
-          onClick={handleLike}
-          disabled={liking}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: liking ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            color: story.isLikedByUser ? '#e74c3c' : '#666',
-            fontSize: '0.9em',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if (!liking) {
-              e.target.style.background = '#f8f8f8';
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'none';
-          }}>
-          <span style={{ fontSize: '1.1em' }}>
-            {story.isLikedByUser ? '👍' : '👍'}
-          </span>
-          <span>{story.likes || 0}</span>
-        </button>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <button
+            onClick={handleBookmark}
+            disabled={bookmarking}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: bookmarking ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '6px 8px',
+              borderRadius: '20px',
+              color: isBookmarked ? '#f39c12' : '#666',
+              fontSize: '0.9em',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (!bookmarking) {
+                e.currentTarget.style.background = '#f8f8f8';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'none';
+            }}
+            title={isBookmarked ? 'Remove bookmark' : 'Bookmark story'}
+          >
+            <div style={{
+              width: '16px',
+              height: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {isBookmarked ? (
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  borderTop: 'none',
+                  borderRight: 'none',
+                  borderBottom: '2px solid #f39c12',
+                  borderLeft: '2px solid #f39c12',
+                  transform: 'rotate(-45deg)',
+                  marginTop: '-2px'
+                }} />
+              ) : (
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  borderTop: 'none',
+                  borderRight: 'none',
+                  borderBottom: '2px solid #aaa',
+                  borderLeft: '2px solid #aaa',
+                  transform: 'rotate(-45deg)',
+                  marginTop: '-2px',
+                  opacity: 0.6
+                }} />
+              )}
+            </div>
+          </button>
+
+          <button
+            onClick={handleLike}
+            disabled={liking || disableLike}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: liking || disableLike ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              color: story.isLikedByUser ? '#e74c3c' : '#666',
+              fontSize: '0.9em',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (!liking && !disableLike) {
+                e.currentTarget.style.background = '#f8f8f8';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'none';
+            }}
+          >
+            <div style={{
+              position: 'relative',
+              width: '14px',
+              height: '14px',
+              transform: story.isLikedByUser ? 'rotate(-45deg) scale(1.1)' : 'rotate(-45deg)',
+              transition: 'transform 0.2s ease'
+            }}>
+              <div style={{
+                position: 'absolute',
+                width: '14px',
+                height: '14px',
+                background: story.isLikedByUser ? '#e74c3c' : '#aaa',
+                borderRadius: '3px'
+              }} />
+              <div style={{
+                position: 'absolute',
+                width: '14px',
+                height: '14px',
+                background: story.isLikedByUser ? '#e74c3c' : '#aaa',
+                borderRadius: '50%',
+                top: '-7px',
+                left: '0'
+              }} />
+              <div style={{
+                position: 'absolute',
+                width: '14px',
+                height: '14px',
+                background: story.isLikedByUser ? '#e74c3c' : '#aaa',
+                borderRadius: '50%',
+                left: '7px',
+                top: '0'
+              }} />
+            </div>
+            <span>{story.likes || 0}</span>
+          </button>
+        </div>
       </div>
 
       {/* Title */}
@@ -152,7 +294,7 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick }) {
       <div style={{
         fontSize: '1em',
         lineHeight: '1.6',
-        color: '#555',
+        color: '#333',
         whiteSpace: 'pre-wrap'
       }}>
         {story.preview}
