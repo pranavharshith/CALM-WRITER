@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { likeStory, bookmarkStory, unbookmarkStory, checkBookmark } from '../api/api';
+import ShareButton from './ShareButton';
 
 export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, disableLike = false }) {
 
@@ -274,6 +275,8 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
             </div>
             <span>{story.likes || 0}</span>
           </button>
+
+          <ShareButton story={story} style={{ fontSize: '0.85em', padding: '6px 12px' }} />
         </div>
       </div>
 

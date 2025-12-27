@@ -13,45 +13,128 @@ function requireSession(req, res, next) {
   next();
 }
 
-// POST /stories/submit: Submit new story (lockout/enforce 1 per 24h on frontend)
+// POST /stories/submit: Submit new story (lockout/enforce 1 per 12h for users, unlimited for admins)
 router.post('/submit', requireSession, async (req, res) => {
   const { text, title } = req.body;
-  
+
   // Validate title (required, at least 3 words)
   if (!title || typeof title !== 'string') {
     return res.status(400).json({ error: 'Title is required' });
   }
-  
+
   const titleWords = title.trim().split(/\s+/).filter(word => word.length > 0);
   if (titleWords.length < 3) {
     return res.status(400).json({ error: 'Title must contain at least 3 words' });
   }
-  
+
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ error: 'Story content is required' });
   }
-  
+
   const wordCount = text.trim().split(/\s+/).length;
   if (wordCount > SOFT_WORD_LIMIT) {
     // Calm nudge: Not hard error, but feedback
     return res.status(400).json({ error: 'Try to keep stories under 800 words.' });
   }
-  
-  // Check last story time (frontend enforces 24h lockout, this is backup)
-  const latest = await Story.findOne({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
-  if (latest && Date.now() - latest.createdAt.getTime() < 24*60*60*1000) {
-    return res.status(403).json({ error: 'You can only write once every 24 hours.' });
+
+  // Check last story time (12h lockout for users, no limit for admins)
+  const user = await User.findOne({ internalId: req.internalId });
+
+  // Admins can post unlimited stories
+  if (user && user.role !== 'admin') {
+    const latest = await Story.findOne({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
+    if (latest && Date.now() - latest.createdAt.getTime() < 12 * 60 * 60 * 1000) {
+      return res.status(403).json({ error: 'You can only write once every 12 hours.' });
+    }
   }
-  
+
   const story = new Story({
     internalAuthorId: req.internalId,
     title: title.trim(),
     text,
     wordCount,
     locked: true,
+    publishedAt: new Date(), // Track when published for grace period
   });
   await story.save();
   res.json({ success: true, storyId: story._id });
+});
+
+// POST /stories/:id/edit: Edit story within 15-minute grace period (CRITICAL FIX #3)
+router.post('/:id/edit', requireSession, async (req, res) => {
+  try {
+    const { title, text } = req.body;
+    const story = await Story.findById(req.params.id);
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    // Check ownership
+    if (story.internalAuthorId !== req.internalId) {
+      return res.status(403).json({ error: 'You can only edit your own stories' });
+    }
+
+    // Check grace period (15 minutes = 900,000 ms)
+    const gracePeriod = 15 * 60 * 1000;
+    const timeSincePublish = Date.now() - story.publishedAt.getTime();
+
+    if (timeSincePublish > gracePeriod) {
+      const minutesAgo = Math.floor(timeSincePublish / 60000);
+      return res.status(403).json({
+        error: `Grace period expired. Story was published ${minutesAgo} minutes ago.`,
+        gracePeriodExpired: true
+      });
+    }
+
+    // Check edit limit (max 3 edits to prevent abuse)
+    if (story.editCount >= 3) {
+      return res.status(403).json({
+        error: 'Maximum edit limit reached (3 edits per story)',
+        editLimitReached: true
+      });
+    }
+
+    // Validate title (required, at least 3 words)
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const titleWords = title.trim().split(/\s+/).filter(word => word.length > 0);
+    if (titleWords.length < 3) {
+      return res.status(400).json({ error: 'Title must contain at least 3 words' });
+    }
+
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Story content is required' });
+    }
+
+    const wordCount = text.trim().split(/\s+/).length;
+    if (wordCount > 800) {
+      return res.status(400).json({ error: 'Try to keep stories under 800 words.' });
+    }
+
+    // Update story
+    story.title = title.trim();
+    story.text = text;
+    story.wordCount = wordCount;
+    story.lastEditedAt = new Date();
+    story.editCount = (story.editCount || 0) + 1;
+    await story.save();
+
+    const timeRemaining = gracePeriod - timeSincePublish;
+    const minutesRemaining = Math.floor(timeRemaining / 60000);
+
+    res.json({
+      success: true,
+      story,
+      editsRemaining: 3 - story.editCount,
+      gracePeriodRemaining: minutesRemaining
+    });
+  } catch (error) {
+    console.error('Edit story error:', error);
+    res.status(500).json({ error: 'Failed to edit story' });
+  }
 });
 
 // GET /stories/mine: List my past stories (private archive)
@@ -97,20 +180,32 @@ router.get('/next', requireSession, async (req, res) => {
   res.json({ story: metrics[0].story });
 });
 
-// GET /stories/can-write: Check if user can write (24h lockout)
+// GET /stories/can-write: Check if user can write (12h lockout for users, unlimited for admins)
 router.get('/can-write', requireSession, async (req, res) => {
+  // Check if user is admin
+  const user = await User.findOne({ internalId: req.internalId });
+
+  // Admins can always write
+  if (user && user.role === 'admin') {
+    return res.json({
+      canWrite: true,
+      timeUntilNext: 0,
+      isAdmin: true
+    });
+  }
+
   const latest = await Story.findOne({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
   if (!latest) {
     return res.json({ canWrite: true });
   }
   const timeSinceLastStory = Date.now() - latest.createdAt.getTime();
-  const canWrite = timeSinceLastStory >= 24 * 60 * 60 * 1000;
-  const timeUntilNext = canWrite ? 0 : (24 * 60 * 60 * 1000) - timeSinceLastStory;
-  
-  res.json({ 
-    canWrite, 
+  const canWrite = timeSinceLastStory >= 12 * 60 * 60 * 1000;
+  const timeUntilNext = canWrite ? 0 : (12 * 60 * 60 * 1000) - timeSinceLastStory;
+
+  res.json({
+    canWrite,
     timeUntilNext,
-    lastStoryTime: latest.createdAt 
+    lastStoryTime: latest.createdAt
   });
 });
 
@@ -121,10 +216,10 @@ router.get('/feed', requireSession, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const sort = req.query.sort || 'latest'; // latest, popular, trending
     const skip = (page - 1) * limit;
-    
+
     let findQuery = { hidden: false }; // Exclude hidden stories
     let sortQuery = {};
-    
+
     switch (sort) {
       case 'popular':
         sortQuery = { likes: -1, createdAt: -1 };
@@ -138,13 +233,13 @@ router.get('/feed', requireSession, async (req, res) => {
       default:
         sortQuery = { createdAt: -1 };
     }
-    
+
     const stories = await Story.find(findQuery)
       .sort(sortQuery)
       .skip(skip)
       .limit(limit)
       .lean();
-    
+
     // Get author usernames
     const User = require('../models/User');
     const enrichedStories = await Promise.all(stories.map(async (story) => {
@@ -158,9 +253,9 @@ router.get('/feed', requireSession, async (req, res) => {
         likedBy: story.likedBy || []
       };
     }));
-    
+
     const totalStories = await Story.countDocuments({ hidden: false });
-    
+
     res.json({
       stories: enrichedStories,
       pagination: {
@@ -178,6 +273,37 @@ router.get('/feed', requireSession, async (req, res) => {
   }
 });
 
+/* MOVED TO END OF FILE - DO NOT UNCOMMENT
+// GET /stories/:id: Get single story by ID
+router.get('/:id', requireSession, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id);
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    if (story.hidden) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    // Get author username
+    const User = require('./models/User');
+    const author = await User.findOne({ internalId: story.internalAuthorId });
+
+    res.json({
+      ...story.toObject(),
+      authorUsername: author?.username || 'Anonymous',
+      isLikedByUser: (story.likedBy || []).includes(req.internalId),
+      likes: story.likes || 0
+    });
+  } catch (error) {
+    console.error('Get story error:', error);
+    res.status(500).json({ error: 'Failed to fetch story' });
+  }
+});
+*/
+
 // GET /stories/featured: Get current featured story
 router.get('/featured', async (req, res) => {
   try {
@@ -185,10 +311,10 @@ router.get('/featured', async (req, res) => {
     if (!featuredStory) {
       return res.json({ featured: null });
     }
-    
+
     const User = require('../models/User');
     const author = await User.findOne({ internalId: featuredStory.internalAuthorId });
-    
+
     res.json({
       featured: {
         ...featuredStory.toObject(),
@@ -207,15 +333,15 @@ router.post('/like', requireSession, async (req, res) => {
     if (!storyId) {
       return res.status(400).json({ error: 'Story ID required' });
     }
-    
+
     const story = await Story.findById(storyId);
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
-    
+
     // Check if user already liked this story
     const alreadyLiked = story.likedBy.includes(req.internalId);
-    
+
     if (alreadyLiked) {
       // Unlike
       story.likedBy = story.likedBy.filter(id => id !== req.internalId);
@@ -225,9 +351,9 @@ router.post('/like', requireSession, async (req, res) => {
       story.likedBy.push(req.internalId);
       story.likes += 1;
     }
-    
+
     await story.save();
-    
+
     res.json({
       success: true,
       liked: !alreadyLiked,
@@ -241,11 +367,11 @@ router.post('/like', requireSession, async (req, res) => {
 // GET /stories/search: Search stories with filters
 router.get('/search', requireSession, async (req, res) => {
   try {
-    const { 
+    const {
       q, // search query (title, content, author)
-      minLikes, 
-      maxLikes, 
-      minWords, 
+      minLikes,
+      maxLikes,
+      minWords,
       maxWords,
       dateFrom, // ISO date string
       dateTo, // ISO date string
@@ -259,7 +385,7 @@ router.get('/search', requireSession, async (req, res) => {
     // Text search: search in title, text, or author username
     if (q && q.trim()) {
       const searchTerm = q.trim();
-      
+
       // First, find users matching the search term
       const matchingUsers = await User.find({
         username: { $regex: searchTerm, $options: 'i' }
@@ -348,10 +474,10 @@ router.get('/search', requireSession, async (req, res) => {
 router.get('/leaderboard', async (req, res) => {
   try {
     const period = req.query.period || '24h'; // 24h, 3d, 1w
-    
+
     let timeFilter = {};
     const now = new Date();
-    
+
     switch (period) {
       case '24h':
         timeFilter = { createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } };
@@ -365,7 +491,7 @@ router.get('/leaderboard', async (req, res) => {
       default:
         timeFilter = { createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } };
     }
-    
+
     // Aggregate likes by author in the time period
     const leaderboard = await Story.aggregate([
       { $match: timeFilter },
@@ -379,11 +505,11 @@ router.get('/leaderboard', async (req, res) => {
       { $sort: { totalLikes: -1 } },
       { $limit: 10 }
     ]);
-    
+
     // Get usernames for the top users (only include users with usernames)
     const User = require('../models/User');
     const enrichedLeaderboard = [];
-    
+
     for (const entry of leaderboard) {
       const user = await User.findOne({ internalId: entry._id });
       if (user && user.username) {
@@ -395,7 +521,7 @@ router.get('/leaderboard', async (req, res) => {
         });
       }
     }
-    
+
     res.json({
       period,
       leaderboard: enrichedLeaderboard
@@ -403,6 +529,35 @@ router.get('/leaderboard', async (req, res) => {
   } catch (error) {
     console.error('Leaderboard error:', error);
     res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /stories/:id: Get single story by ID (MUST be last to avoid catching other routes)
+router.get('/:id', requireSession, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id);
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    if (story.hidden) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    // Get author username
+    const User = require('../models/User');
+    const author = await User.findOne({ internalId: story.internalAuthorId });
+
+    res.json({
+      ...story.toObject(),
+      authorUsername: author?.username || 'Anonymous',
+      isLikedByUser: (story.likedBy || []).includes(req.internalId),
+      likes: story.likes || 0
+    });
+  } catch (error) {
+    console.error('Get story error:', error);
+    res.status(500).json({ error: 'Failed to fetch story' });
   }
 });
 

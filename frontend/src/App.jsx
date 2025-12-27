@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import LoginScreen from './components/LoginScreen';
 import UsernameSetup from './components/UsernameSetup';
 import CommunityFeed from './components/CommunityFeed';
@@ -8,22 +10,150 @@ import PrivateArchive from './components/PrivateArchive';
 import UserProfile from './components/UserProfile';
 import ThreadView from './components/ThreadView';
 import ModerationDashboard from './components/ModerationDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import Bookmarks from './components/Bookmarks';
 import MyStories from './components/MyStories';
 import FollowingPage from './components/FollowingPage';
 import UserStories from './components/UserStories';
-import { fetchCurrentUser, trackReadSession } from './api/api';
+import { fetchCurrentUser, trackReadSession, fetchStoryById } from './api/api';
 
-export default function App() {
-  const [screen, setScreen] = useState('loading'); // loading, login, username-setup, community, read, write, profile, bookmarks, thread, moderation, my-stories, following, user-stories
-  const [currentStory, setCurrentStory] = useState(null);
+// Wrapper components for routes that need params
+function StoryReaderRoute() {
+  const { storyId } = useParams();
+  const navigate = useNavigate();
+  const [story, setStory] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const storyData = await fetchStoryById(storyId);
+        setStory(storyData);
+      } catch (error) {
+        console.error('Failed to load story:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStory();
+  }, [storyId]);
+
+  const handleLike = (storyId, updates) => {
+    setStory(prevStory => ({
+      ...prevStory,
+      likes: updates.likes,
+      isLikedByUser: updates.isLikedByUser
+    }));
+  };
+
+  if (loading) return <div style={{ padding: '20px' }}>Loading...</div>;
+  if (!story) return <div style={{ padding: '20px' }}>Story not found</div>;
+
+  return <StoryReader story={story} onBack={() => navigate('/community')} onLike={handleLike} />;
+}
+
+function UserProfileRoute() {
+  const { username } = useParams();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await fetchCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      }
+    };
+    loadUser();
+  }, []);
+
+  return (
+    <UserProfile
+      username={username}
+      onBack={() => navigate('/community')}
+      onReadStory={(story) => navigate(`/story/${story._id}`)}
+      currentUser={user}
+      onLogout={() => {
+        localStorage.removeItem('calmstories_user');
+        localStorage.removeItem('calmstories_internal_id');
+        navigate('/login');
+      }}
+      onViewBookmarks={() => navigate('/bookmarks')}
+      onViewMyStories={() => navigate('/my-stories')}
+      onViewFollowing={(username) => navigate(`/following/${username}`)}
+      onViewUserStories={(username) => navigate(`/user/${username}/stories`)}
+    />
+  );
+}
+
+function ThreadViewRoute() {
+  const { storyId } = useParams();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await fetchCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      }
+    };
+    loadUser();
+  }, []);
+
+  return <ThreadView storyId={storyId} user={user} onBack={() => navigate('/community')} />;
+}
+
+function FollowingPageRoute() {
+  const { username } = useParams();
+  const navigate = useNavigate();
+
+  return (
+    <FollowingPage
+      username={username}
+      onBack={() => navigate(`/profile/${username}`)}
+      onProfile={(username) => navigate(`/profile/${username}`)}
+    />
+  );
+}
+
+function UserStoriesRoute() {
+  const { username } = useParams();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await fetchCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      }
+    };
+    loadUser();
+  }, []);
+
+  return (
+    <UserStories
+      username={username}
+      onBack={() => navigate(`/profile/${username}`)}
+      onReadStory={(story) => navigate(`/story/${story._id}`)}
+      onProfile={(username) => navigate(`/profile/${username}`)}
+      currentUser={user}
+    />
+  );
+}
+
+function AppContent() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [profileUsername, setProfileUsername] = useState('');
-  const [currentThreadId, setCurrentThreadId] = useState(null);
-  const [storiesUsername, setStoriesUsername] = useState('');
-  const [followingUsername, setFollowingUsername] = useState('');
 
   useEffect(() => {
     checkAuthStatus();
@@ -31,119 +161,62 @@ export default function App() {
 
   const checkAuthStatus = async () => {
     try {
-      // Check if user exists in localStorage
       const savedUser = localStorage.getItem('calmstories_user');
       if (savedUser) {
         const userData = JSON.parse(savedUser);
-        
+
         try {
-          // Verify with server and get latest user info
           const currentUser = await fetchCurrentUser();
           if (currentUser.internalId) {
             setUser(currentUser);
-            
+
             if (currentUser.needsUsername) {
-              setScreen('username-setup');
-            } else {
-              setScreen('community');
+              navigate('/username-setup');
+            } else if (window.location.pathname === '/login' || window.location.pathname === '/') {
+              navigate('/community');
             }
           } else {
-            // Invalid session, clear and show login
             localStorage.removeItem('calmstories_user');
             localStorage.removeItem('calmstories_internal_id');
-            setScreen('login');
+            navigate('/login');
           }
         } catch (userError) {
-          // User doesn't exist on server, clear local data
           localStorage.removeItem('calmstories_user');
           localStorage.removeItem('calmstories_internal_id');
-          setScreen('login');
+          navigate('/login');
         }
       } else {
-        setScreen('login');
+        navigate('/login');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       localStorage.removeItem('calmstories_user');
       localStorage.removeItem('calmstories_internal_id');
-      setScreen('login');
+      navigate('/login');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLogin = (userData) => {
     setUser(userData);
     if (userData.needsUsername) {
-      setScreen('username-setup');
+      navigate('/username-setup');
     } else {
-      setScreen('community');
+      navigate('/community');
     }
   };
 
   const handleUsernameComplete = (userData) => {
     setUser(userData);
-    setScreen('community');
+    navigate('/community');
   };
 
-  const handleReadStory = (story) => {
-    setCurrentStory(story);
-    setScreen('read');
-  };
-
-  const handleWriteStory = () => {
-    setScreen('write');
-  };
-
-  const handleProfile = (username) => {
-    setProfileUsername(username);
-    setScreen('profile');
-  };
-
-  const handleBackToCommunity = () => {
-    setScreen('community');
-    setCurrentStory(null);
-    setProfileUsername('');
-    setCurrentThreadId(null);
-  };
-
-  const handleViewBookmarks = () => {
-    setScreen('bookmarks');
-  };
-
-  const handleViewMyStories = () => {
-    setScreen('my-stories');
-  };
-
-  const handleViewFollowing = (username) => {
-    setFollowingUsername(username);
-    setScreen('following');
-  };
-
-  const handleViewUserStories = (username) => {
-    setStoriesUsername(username);
-    setScreen('user-stories');
-  };
-
-  const handleViewThread = (storyId) => {
-    setCurrentThreadId(storyId);
-    setScreen('thread');
-  };
-
-  const handleModeration = () => {
-    setScreen('moderation');
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('calmstories_user');
-    localStorage.removeItem('calmstories_internal_id');
-    setUser(null);
-    setScreen('login');
-  };
-
-  if (screen === 'loading') {
+  if (loading) {
     return (
-      <div style={{ 
-        fontFamily: 'Georgia, serif', 
-        background: '#fefefd', 
+      <div style={{
+        fontFamily: 'Georgia, serif',
+        background: '#fefefd',
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -169,117 +242,83 @@ export default function App() {
           zIndex: 1000
         }}>
           {error}
-          <button 
+          <button
             onClick={() => setError('')}
             style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer' }}>
             ×
           </button>
         </div>
       )}
-      
-      {screen === 'login' && (
-        <LoginScreen onLogin={handleLogin} />
-      )}
-      
-      {screen === 'username-setup' && (
-        <UsernameSetup user={user} onComplete={handleUsernameComplete} />
-      )}
-      
-      {screen === 'community' && (
-        <CommunityFeed 
-          user={user}
-          onReadStory={handleReadStory}
-          onWriteStory={handleWriteStory}
-          onProfile={handleProfile}
-          onViewThread={handleViewThread}
-          onModeration={handleModeration}
-        />
-      )}
-      
-      {screen === 'read' && currentStory && (
-        <StoryReader 
-          story={currentStory}
-          onBack={handleBackToCommunity}
-        />
-      )}
-      
-      {screen === 'write' && (
-        <WriteScreen 
-          onBack={handleBackToCommunity}
-          user={user}
-          setUser={setUser}
-        />
-      )}
-      
-      {screen === 'profile' && (
-        <UserProfile 
-          username={profileUsername}
-          onBack={handleBackToCommunity}
-          onReadStory={handleReadStory}
-          currentUser={user}
-          onLogout={handleLogout}
-          onViewBookmarks={handleViewBookmarks}
-          onViewMyStories={handleViewMyStories}
-          onViewFollowing={handleViewFollowing}
-          onViewUserStories={handleViewUserStories}
-        />
-      )}
-      
-      {screen === 'bookmarks' && (
-        <Bookmarks 
-          onBack={() => {
-            if (profileUsername) {
-              setScreen('profile');
-            } else {
-              handleBackToCommunity();
-            }
-          }}
-          onReadStory={handleReadStory}
-          onProfile={handleProfile}
-        />
-      )}
-      
-      {screen === 'thread' && currentThreadId && (
-        <ThreadView 
-          storyId={currentThreadId}
-          user={user}
-          onBack={handleBackToCommunity}
-        />
-      )}
-      
-      {screen === 'user-stories' && (
-        <UserStories
-          username={storiesUsername}
-          onBack={() => setScreen('profile')}
-          onReadStory={handleReadStory}
-          onProfile={handleProfile}
-          currentUser={user}
-        />
-      )}
 
-      {screen === 'following' && (
-        <FollowingPage
-          username={followingUsername}
-          onBack={() => setScreen('profile')}
-          onProfile={handleProfile}
-        />
-      )}
-
-      {screen === 'my-stories' && (
-        <MyStories
-          user={user}
-          onBack={() => setScreen('profile')}
-          onReadStory={handleReadStory}
-          onProfile={handleProfile}
-        />
-      )}
-
-      {screen === 'moderation' && (
-        <ModerationDashboard 
-          user={user}
-          onBack={handleBackToCommunity}
-        />
-      )}
+      <Routes>
+        <Route path="/login" element={<LoginScreen onLogin={handleLogin} />} />
+        <Route path="/username-setup" element={<UsernameSetup user={user} onComplete={handleUsernameComplete} />} />
+        <Route path="/community" element={
+          <CommunityFeed
+            user={user}
+            onReadStory={(story) => navigate(`/story/${story._id}`)}
+            onWriteStory={() => navigate('/write')}
+            onProfile={(username) => navigate(`/profile/${username}`)}
+            onViewThread={(storyId) => navigate(`/thread/${storyId}`)}
+            onModeration={() => navigate('/moderation')}
+            onAdmin={() => navigate('/admin')}
+          />
+        } />
+        <Route path="/story/:storyId" element={<StoryReaderRoute />} />
+        <Route path="/write" element={
+          <WriteScreen
+            onBack={() => navigate('/community')}
+            user={user}
+            setUser={setUser}
+          />
+        } />
+        <Route path="/profile/:username" element={<UserProfileRoute />} />
+        <Route path="/bookmarks" element={
+          <Bookmarks
+            onBack={() => navigate('/community')}
+            onReadStory={(story) => navigate(`/story/${story._id}`)}
+            onProfile={(username) => navigate(`/profile/${username}`)}
+          />
+        } />
+        <Route path="/thread/:storyId" element={<ThreadViewRoute />} />
+        <Route path="/my-stories" element={
+          <MyStories
+            user={user}
+            onBack={() => navigate(`/profile/${user?.username}`)}
+            onReadStory={(story) => navigate(`/story/${story._id}`)}
+            onProfile={(username) => navigate(`/profile/${username}`)}
+          />
+        } />
+        <Route path="/following/:username" element={<FollowingPageRoute />} />
+        <Route path="/user/:username/stories" element={<UserStoriesRoute />} />
+        <Route path="/admin" element={
+          user && user.role === 'admin' && user.email === 'pranav.dot.h@gmail.com' ? (
+            <AdminDashboard
+              user={user}
+              onBack={() => navigate('/community')}
+            />
+          ) : (
+            <Navigate to="/community" replace />
+          )
+        } />
+        <Route path="/moderation" element={
+          <ModerationDashboard
+            user={user}
+            onBack={() => navigate('/community')}
+          />
+        } />
+        <Route path="/" element={<Navigate to="/community" replace />} />
+      </Routes>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <HelmetProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </HelmetProvider>
   );
 }

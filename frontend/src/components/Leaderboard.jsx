@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { fetchLeaderboard } from '../api/api';
+import { fetchTopStories } from '../api/api';
+import { useNavigate } from 'react-router-dom';
 
-export default function Leaderboard({ onUserClick }) {
+export default function Leaderboard() {
+  const navigate = useNavigate();
   const [leaderboard, setLeaderboard] = useState([]);
   const [period, setPeriod] = useState('24h');
   const [loading, setLoading] = useState(true);
@@ -14,7 +16,7 @@ export default function Leaderboard({ onUserClick }) {
   const loadLeaderboard = async () => {
     try {
       setLoading(true);
-      const result = await fetchLeaderboard(period);
+      const result = await fetchTopStories(period);
       setLeaderboard(result.leaderboard || []);
     } catch (err) {
       setError('Failed to load leaderboard');
@@ -27,7 +29,8 @@ export default function Leaderboard({ onUserClick }) {
   const periodLabels = {
     '24h': 'Last 24 Hours',
     '3d': 'Last 3 Days',
-    '1w': 'Last Week'
+    '1w': 'Last Week',
+    'all-time': 'All-Time Best'
   };
 
   return (
@@ -46,7 +49,7 @@ export default function Leaderboard({ onUserClick }) {
         color: '#333',
         textAlign: 'left'
       }}>
-        Top Writers
+        Top Stories
       </div>
 
       {/* Period Selector */}
@@ -58,7 +61,7 @@ export default function Leaderboard({ onUserClick }) {
         borderRadius: '6px',
         padding: '4px'
       }}>
-        {['24h', '3d', '1w'].map(p => (
+        {['24h', '3d', '1w', 'all-time'].map(p => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
@@ -73,7 +76,7 @@ export default function Leaderboard({ onUserClick }) {
               color: period === p ? '#333' : '#666',
               boxShadow: period === p ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
             }}>
-            {p.toUpperCase()}
+            {p === 'all-time' ? 'ALL-TIME' : p.toUpperCase()}
           </button>
         ))}
       </div>
@@ -115,16 +118,16 @@ export default function Leaderboard({ onUserClick }) {
           }}>
             {periodLabels[period]}
           </div>
-          
+
           <div style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '8px'
           }}>
-            {leaderboard.map((user, index) => (
+            {leaderboard.map((entry, index) => (
               <div
-                key={user.internalId}
-                onClick={() => onUserClick(user.username)}
+                key={entry.storyId}
+                onClick={() => navigate(`/story/${entry.storyId}`)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -136,12 +139,12 @@ export default function Leaderboard({ onUserClick }) {
                   transition: 'background 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.background = '#f0f0f0';
+                  e.currentTarget.style.background = '#f0f0f0';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.background = index < 3 ? '#f8f9fa' : 'transparent';
+                  e.currentTarget.style.background = index < 3 ? '#f8f9fa' : 'transparent';
                 }}>
-                
+
                 <div style={{
                   fontSize: '0.9em',
                   minWidth: '24px',
@@ -150,7 +153,7 @@ export default function Leaderboard({ onUserClick }) {
                 }}>
                   {index + 1}.
                 </div>
-                
+
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: '0.85em',
@@ -158,18 +161,19 @@ export default function Leaderboard({ onUserClick }) {
                     color: '#333',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis'
+                    textOverflow: 'ellipsis',
+                    marginBottom: '2px'
                   }}>
-                    @{user.username}
+                    {entry.storyTitle}
                   </div>
                   <div style={{
                     fontSize: '0.75em',
                     color: '#666'
                   }}>
-                    {user.storyCount} {user.storyCount === 1 ? 'story' : 'stories'}
+                    by @{entry.username}
                   </div>
                 </div>
-                
+
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -210,7 +214,7 @@ export default function Leaderboard({ onUserClick }) {
                       top: '0'
                     }} />
                   </div>
-                  <span>{user.totalLikes}</span>
+                  <span>{entry.likes}</span>
                 </div>
               </div>
             ))}

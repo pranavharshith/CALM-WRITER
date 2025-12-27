@@ -5,7 +5,7 @@ import FeaturedBanner from './FeaturedBanner';
 import Leaderboard from './Leaderboard';
 import SearchBar from './SearchBar';
 
-export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfile, onViewThread, onModeration }) {
+export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfile, onViewThread, onModeration, onAdmin }) {
   const [stories, setStories] = useState([]);
   const [featuredStory, setFeaturedStory] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,14 +28,14 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
     try {
       setLoading(pageNum === 1);
       const result = await fetchCommunityFeed(pageNum, sort);
-      
+
       if (result && result.stories) {
         if (reset) {
           setStories(result.stories);
         } else {
           setStories(prev => [...prev, ...result.stories]);
         }
-        
+
         setHasMore(result.pagination?.hasNext || false);
         setPage(pageNum);
       } else {
@@ -71,7 +71,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
   };
 
   const handleStoryUpdate = (storyId, updates) => {
-    setStories(prev => prev.map(story => 
+    setStories(prev => prev.map(story =>
       story._id === storyId ? { ...story, ...updates } : story
     ));
   };
@@ -82,16 +82,16 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
       setIsSearching(true);
       setSearchQuery(query);
       setSearchFilters(filters);
-      
+
       const result = await searchStories(query, filters, pageNum);
-      
+
       if (result && result.stories) {
         if (pageNum === 1) {
           setStories(result.stories);
         } else {
           setStories(prev => [...prev, ...result.stories]);
         }
-        
+
         setHasMore(result.pagination?.hasNext || false);
         setPage(pageNum);
       } else {
@@ -166,7 +166,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
           }}>
             Calm Stories
           </div>
-          
+
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             <button
               onClick={onWriteStory}
@@ -181,7 +181,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
               }}>
               Write
             </button>
-            
+
             {user?.username && (
               <button
                 onClick={() => onProfile(user.username)}
@@ -195,6 +195,24 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
                   cursor: 'pointer'
                 }}>
                 @{user.username}
+              </button>
+            )}
+
+            {user?.role === 'admin' && user?.email === 'pranav.dot.h@gmail.com' && onAdmin && (
+              <button
+                onClick={onAdmin}
+                style={{
+                  padding: '8px 16px',
+                  background: '#ff9800',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.9em',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontFamily: 'Georgia, serif'
+                }}>
+                Admin
               </button>
             )}
           </div>
@@ -215,108 +233,117 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
           maxWidth: '800px',
           minWidth: 0
         }}>
-        {/* Search Bar */}
-        <SearchBar 
-          onSearch={handleSearch}
-          onClear={handleClearSearch}
-          isSearching={isSearching}
-        />
-
-        {/* Sort Options - hidden when searching */}
-        {!isSearching && (
-          <div style={{
-            display: 'flex',
-            gap: '12px',
-            marginBottom: '30px'
-          }}>
-            {['latest', 'popular', 'trending'].map(sortOption => (
-              <button
-                key={sortOption}
-                onClick={() => setSort(sortOption)}
-                style={{
-                  padding: '8px 16px',
-                  background: sort === sortOption ? '#f0f0f0' : 'transparent',
-                  color: sort === sortOption ? '#333' : '#666',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  cursor: 'pointer',
-                  textTransform: 'capitalize'
-                }}>
-                {sortOption}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Search Results Header */}
-        {isSearching && (
-          <div style={{
-            marginBottom: '20px',
-            padding: '12px',
-            background: '#f8f9fa',
-            borderRadius: '6px',
-            fontSize: '0.9em',
-            color: '#666'
-          }}>
-            {searchQuery ? `Search results for "${searchQuery}"` : 'Filtered results'}
-          </div>
-        )}
-        
-        {/* Featured Story - hidden when searching */}
-        {!isSearching && featuredStory && (
-          <FeaturedBanner 
-            story={featuredStory} 
-            onRead={() => onReadStory(featuredStory)}
+          {/* Search Bar */}
+          <SearchBar
+            onSearch={handleSearch}
+            onClear={handleClearSearch}
+            isSearching={isSearching}
           />
-        )}
 
-        {/* Stories */}
-        {error && (
-          <div style={{
-            color: '#d44',
-            textAlign: 'center',
-            padding: '20px',
-            marginBottom: '20px'
-          }}>
-            {error}
-          </div>
-        )}
+          {/* Sort Options - hidden when searching */}
+          {!isSearching && (
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              marginBottom: '30px'
+            }}>
+              {['latest', 'popular', 'trending'].map(sortOption => (
+                <button
+                  key={sortOption}
+                  onClick={() => setSort(sortOption)}
+                  style={{
+                    padding: '8px 16px',
+                    background: sort === sortOption ? '#f0f0f0' : 'transparent',
+                    color: sort === sortOption ? '#333' : '#666',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '0.9em',
+                    cursor: 'pointer',
+                    textTransform: 'capitalize'
+                  }}>
+                  {sortOption}
+                </button>
+              ))}
+            </div>
+          )}
 
-        {stories.length === 0 && !loading ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '60px 20px',
-            opacity: 0.5,
-            fontSize: '1.1em'
-          }}>
-            {isSearching ? 'No stories found matching your search.' : 'No stories yet. Be the first to share!'}
-          </div>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px'
-          }}>
-            {stories.map(story => (
-              <StoryCard
-                key={story._id}
-                story={story}
-                onRead={() => onReadStory(story)}
-                onLike={handleStoryUpdate}
-                onAuthorClick={() => {
-                  // Only navigate if this story is tied to a real, named user
-                  if (
-                    story.authorUsername &&
-                    story.authorUsername !== 'Anonymous'
-                  ) {
-                    onProfile(story.authorUsername);
-                  }
-                }}
+          {/* Search Results Header */}
+          {isSearching && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '12px',
+              background: '#f8f9fa',
+              borderRadius: '6px',
+              fontSize: '0.9em',
+              color: '#666'
+            }}>
+              {searchQuery ? `Search results for "${searchQuery}"` : 'Filtered results'}
+            </div>
+          )}
+
+          {/* Featured Story - hidden when searching */}
+          {!isSearching && featuredStory && (
+            <div style={{
+              background: '#fff',
+              borderRadius: '8px',
+              padding: '0',
+              boxShadow: '0 1px 4px #efefee',
+              border: '1px solid #ddd',
+              marginBottom: '20px'
+            }}>
+              <FeaturedBanner
+                story={featuredStory}
+                onRead={() => onReadStory(featuredStory)}
               />
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+
+          {/* Stories */}
+          {error && (
+            <div style={{
+              color: '#d44',
+              textAlign: 'center',
+              padding: '20px',
+              marginBottom: '20px'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {stories.length === 0 && !loading ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              opacity: 0.5,
+              fontSize: '1.1em'
+            }}>
+              {isSearching ? 'No stories found matching your search.' : 'No stories yet. Be the first to share!'}
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              {stories.map(story => (
+                <StoryCard
+                  key={story._id}
+                  story={story}
+                  onRead={() => onReadStory(story)}
+                  onLike={handleStoryUpdate}
+                  onAuthorClick={() => {
+                    // Only navigate if this story is tied to a real, named user
+                    if (
+                      story.authorUsername &&
+                      story.authorUsername !== 'Anonymous'
+                    ) {
+                      onProfile(story.authorUsername);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Load More */}
           {hasMore && (
@@ -358,7 +385,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
               overflowY: 'auto'
             }}
           >
-            <Leaderboard onUserClick={onProfile} />
+            <Leaderboard />
           </div>
         </div>
       </div>

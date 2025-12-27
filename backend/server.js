@@ -15,25 +15,25 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/.well-known')) {
     return res.status(204).end();
   }
-  
+
   // Handle favicon requests
   if (req.path === '/favicon.ico') {
     return res.status(204).end();
   }
-  
+
   // Handle robots.txt
   if (req.path === '/robots.txt') {
     res.type('text/plain');
     return res.send('User-agent: *\nDisallow: /');
   }
-  
+
   next();
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Calm Stories API', 
+  res.json({
+    message: 'Calm Stories API',
     version: '2.0.0',
     endpoints: ['/stories', '/reactions', '/reads', '/auth', '/admin', '/threads', '/leaderboards', '/moderation', '/bookmarks']
   });
@@ -56,13 +56,14 @@ app.use('/leaderboards', require('./routes/leaderboards'));
 app.use('/moderation', require('./routes/moderation'));
 app.use('/bookmarks', require('./routes/bookmarks'));
 app.use('/follows', require('./routes/follows'));
+app.use('/drafts', require('./routes/drafts'));
 
 // Handle any other 404s silently (for browser/DevTools requests)
 app.use((req, res) => {
   // Only log actual API requests, not browser/DevTools noise
-  if (!req.originalUrl.includes('.well-known') && 
-      !req.originalUrl.includes('favicon') && 
-      !req.originalUrl.includes('chrome-extension')) {
+  if (!req.originalUrl.includes('.well-known') &&
+    !req.originalUrl.includes('favicon') &&
+    !req.originalUrl.includes('chrome-extension')) {
     console.log(`404: ${req.method} ${req.originalUrl}`);
   }
   res.status(404).json({ error: 'Not found' });

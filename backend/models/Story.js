@@ -15,6 +15,23 @@ const StorySchema = new mongoose.Schema({
   threadLocked: { type: Boolean, default: false }, // Moderator can lock thread
   hidden: { type: Boolean, default: false }, // Moderator can hide story
   hiddenReason: { type: String }, // Why it was hidden
+
+  // Grace period for edits
+  publishedAt: { type: Date, default: Date.now }, // When first published
+  lastEditedAt: { type: Date }, // Last edit timestamp
+  editCount: { type: Number, default: 0 }, // Number of edits (max 3)
+
+  // Moderator delete permissions (CRITICAL FIX #2)
+  deleteVotes: [{
+    moderatorId: String,
+    votedAt: { type: Date, default: Date.now },
+    reason: String
+  }],
+  spamScore: { type: Number, default: 0 }, // Automated spam detection score
+  markedForDeletion: { type: Boolean, default: false }, // Flagged for deletion
+
+  // Daily Prompts
+  promptId: { type: mongoose.Schema.Types.ObjectId, ref: 'DailyPrompt' }
 }, {
   timestamps: true
 });

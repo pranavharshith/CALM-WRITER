@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  fetchReports, 
-  removeStory, 
-  removeNode, 
-  lockThread, 
-  pinComment, 
-  dismissReport 
+import {
+  fetchReports,
+  removeStory,
+  removeNode,
+  lockThread,
+  pinComment,
+  dismissReport,
+  timeoutUser,
+  issueWarning,
+  fetchModeratorChat,
+  postModeratorChat,
+  fetchTimeoutAppeals,
+  reviewTimeoutAppeal
 } from '../api/api';
 
 export default function ModerationDashboard({ user, onBack }) {
+  const [activeTab, setActiveTab] = useState('reports'); // 'reports', 'appeals', 'chat'
   const [reports, setReports] = useState([]);
+  const [appeals, setAppeals] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -18,10 +27,18 @@ export default function ModerationDashboard({ user, onBack }) {
   const [actionReason, setActionReason] = useState('');
   const [pinCommentText, setPinCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [timeoutDuration, setTimeoutDuration] = useState('12h');
 
   useEffect(() => {
-    loadReports();
-  }, [statusFilter]);
+    if (activeTab === 'reports') {
+      loadReports();
+    } else if (activeTab === 'appeals') {
+      loadAppeals();
+    } else if (activeTab === 'chat') {
+      loadChat();
+    }
+  }, [statusFilter, activeTab]);
 
   const loadReports = async () => {
     try {
@@ -36,6 +53,44 @@ export default function ModerationDashboard({ user, onBack }) {
     }
   };
 
+  const loadAppeals = async () => {
+    try {
+      setLoading(true);
+      const result = await fetchTimeoutAppeals(statusFilter);
+      setAppeals(result.appeals || []);
+    } catch (err) {
+      setError('Failed to load appeals');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadChat = async () => {
+    try {
+      setLoading(true);
+      const result = await fetchModeratorChat(50);
+      setChatMessages(result.messages || []);
+    } catch (err) {
+      setError('Failed to load chat');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendChat = async () => {
+    if (!chatMessage.trim()) return;
+
+    try {
+      await postModeratorChat(chatMessage);
+      setChatMessage('');
+      await loadChat();
+    } catch (err) {
+      setError(err.error || 'Failed to send message');
+    }
+  };
+
   const handleAction = async (report, action) => {
     setActioningReport(report);
     setActionType(action);
@@ -45,15 +100,15 @@ export default function ModerationDashboard({ user, onBack }) {
 
   const executeAction = async () => {
     if (!actioningReport) return;
-    
+
     setSubmitting(true);
     setError('');
-    
+
     try {
       switch (actionType) {
         case 'remove_story':
           await removeStory(
-            actioningReport.content.id, 
+            actioningReport.content.id,
             actionReason || 'Violates community guidelines',
             actioningReport._id
           );
@@ -87,7 +142,7 @@ export default function ModerationDashboard({ user, onBack }) {
           await dismissReport(actioningReport._id);
           break;
       }
-      
+
       setActioningReport(null);
       setActionType('');
       await loadReports();
@@ -117,7 +172,7 @@ export default function ModerationDashboard({ user, onBack }) {
           <h1 style={{ fontSize: '1.8em', fontWeight: '500', color: '#333', margin: 0 }}>
             Moderation Dashboard
           </h1>
-          <button 
+          <button
             onClick={onBack}
             style={{
               background: 'transparent',
@@ -255,7 +310,7 @@ export default function ModerationDashboard({ user, onBack }) {
                       }}>
                       Remove Content
                     </button>
-                    
+
                     {report.contentType === 'story' && (
                       <>
                         <button
@@ -271,7 +326,7 @@ export default function ModerationDashboard({ user, onBack }) {
                           }}>
                           Lock Thread
                         </button>
-                        
+
                         <button
                           onClick={() => handleAction(report, 'pin_comment')}
                           style={{
@@ -287,7 +342,7 @@ export default function ModerationDashboard({ user, onBack }) {
                         </button>
                       </>
                     )}
-                    
+
                     <button
                       onClick={() => handleAction(report, 'dismiss')}
                       style={{

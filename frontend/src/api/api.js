@@ -143,11 +143,25 @@ export async function fetchCommunityFeed(page = 1, sort = 'latest') {
       'X-Internal-Id': getInternalId(),
     },
   });
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch feed: ${resp.status}`);
   }
-  
+
+  return await resp.json();
+}
+
+export async function fetchStoryById(storyId) {
+  const resp = await fetch(`${API_BASE}/stories/${storyId}`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch story: ${resp.status}`);
+  }
+
   return await resp.json();
 }
 
@@ -170,11 +184,11 @@ export async function fetchFeaturedStory() {
 
 export async function fetchUserProfile(username) {
   const resp = await fetch(`${API_BASE}/users/profile/${username}`);
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch profile: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
@@ -184,21 +198,31 @@ export async function fetchCurrentUser() {
       'X-Internal-Id': getInternalId(),
     },
   });
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch user: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
 export async function fetchLeaderboard(period = '24h') {
   const resp = await fetch(`${API_BASE}/stories/leaderboard?period=${period}`);
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch leaderboard: ${resp.status}`);
   }
-  
+
+  return await resp.json();
+}
+
+export async function fetchTopStories(period = '24h') {
+  const resp = await fetch(`${API_BASE}/leaderboards/top-stories?period=${period}`);
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch top stories: ${resp.status}`);
+  }
+
   return await resp.json();
 }
 
@@ -209,11 +233,11 @@ export async function fetchThread(storyId) {
       'X-Internal-Id': getInternalId(),
     },
   });
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch thread: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
@@ -249,31 +273,31 @@ export async function checkHasThread(storyId) {
 // New leaderboard lenses
 export async function fetchMostFeltLeaderboard(limit = 10) {
   const resp = await fetch(`${API_BASE}/leaderboards/most-felt?limit=${limit}`);
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch leaderboard: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
 export async function fetchQuietlyPowerfulLeaderboard(limit = 10) {
   const resp = await fetch(`${API_BASE}/leaderboards/quietly-powerful?limit=${limit}`);
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch leaderboard: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
 export async function fetchGrowingStoriesLeaderboard(limit = 10, days = 7) {
   const resp = await fetch(`${API_BASE}/leaderboards/growing-stories?limit=${limit}&days=${days}`);
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch leaderboard: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
@@ -284,12 +308,12 @@ export async function reportContent(storyId, storyNodeId, reason, details) {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       userInternalId: getInternalId(),
-      storyId, 
-      storyNodeId, 
-      reason, 
-      details 
+      storyId,
+      storyNodeId,
+      reason,
+      details
     }),
   });
   return await resp.json();
@@ -301,11 +325,11 @@ export async function fetchReports(status = 'pending') {
       'X-Internal-Id': getInternalId(),
     },
   });
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch reports: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
@@ -420,11 +444,11 @@ export async function fetchBookmarks(page = 1, limit = 8, searchQuery = '') {
       'X-Internal-Id': getInternalId(),
     },
   });
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to fetch bookmarks: ${resp.status}`);
   }
-  
+
   return await resp.json();
 }
 
@@ -473,8 +497,8 @@ export async function getFollowCounts(username) {
 }
 
 export async function getFollowingList(username) {
-  const url = username 
-    ? `${API_BASE}/follows/following/${encodeURIComponent(username)}` 
+  const url = username
+    ? `${API_BASE}/follows/following/${encodeURIComponent(username)}`
     : `${API_BASE}/follows/following`;
 
   const options = username ? {} : {
@@ -507,13 +531,256 @@ export async function searchStories(query, filters = {}, page = 1, limit = 10) {
       'X-Internal-Id': getInternalId(),
     },
   });
-  
+
   if (!resp.ok) {
     throw new Error(`Failed to search stories: ${resp.status}`);
   }
-  
+
+  return await resp.json();
+}
+
+// Draft API functions
+export async function saveDraft(title, text, draftId = null) {
+  const resp = await fetch(`${API_BASE}/drafts/save`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ title, text, draftId }),
+  });
+  return await resp.json();
+}
+
+export async function fetchDrafts() {
+  const resp = await fetch(`${API_BASE}/drafts`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch drafts: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
+export async function fetchDraft(draftId) {
+  const resp = await fetch(`${API_BASE}/drafts/${draftId}`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch draft: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
+export async function deleteDraft(draftId) {
+  const resp = await fetch(`${API_BASE}/drafts/${draftId}`, {
+    method: 'DELETE',
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+  return await resp.json();
+}
+
+export async function publishDraft(draftId) {
+  const resp = await fetch(`${API_BASE}/drafts/${draftId}/publish`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+  return await resp.json();
+}
+
+// Admin API functions
+export async function fetchAdminStats() {
+  const resp = await fetch(`${API_BASE}/admin/stats`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch admin stats: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
+export async function fetchAdminActivity(limit = 20) {
+  const resp = await fetch(`${API_BASE}/admin/activity?limit=${limit}`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch admin activity: ${resp.status}`);
+  }
+
+  return await resp.json();
+}
+
+// Timeout and Warning API functions
+export async function timeoutUser(userInternalId, duration, reason) {
+  const resp = await fetch(`${API_BASE}/moderation/timeout-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ userInternalId, duration, reason }),
+  });
+  return await resp.json();
+}
+
+export async function issueWarning(userInternalId, reason) {
+  const resp = await fetch(`${API_BASE}/moderation/issue-warning`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ userInternalId, reason }),
+  });
+  return await resp.json();
+}
+
+// Moderator Chat API functions
+export async function fetchModeratorChat(limit = 50, before = null) {
+  const params = new URLSearchParams({ limit: limit.toString() });
+  if (before) params.append('before', before);
+
+  const resp = await fetch(`${API_BASE}/moderation/chat?${params.toString()}`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+  return await resp.json();
+}
+
+export async function postModeratorChat(message) {
+  const resp = await fetch(`${API_BASE}/moderation/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ message }),
+  });
+  return await resp.json();
+}
+
+// Timeout Appeal API functions
+export async function submitTimeoutAppeal(answers) {
+  const resp = await fetch(`${API_BASE}/moderation/submit-appeal`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ answers }),
+  });
+  return await resp.json();
+}
+
+export async function fetchTimeoutAppeals(status = 'pending') {
+  const resp = await fetch(`${API_BASE}/moderation/appeals?status=${status}`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+  return await resp.json();
+}
+
+export async function reviewTimeoutAppeal(appealId, decision, notes, newDuration = null) {
+  const resp = await fetch(`${API_BASE}/moderation/review-appeal`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ appealId, decision, notes, newDuration }),
+  });
+  return await resp.json();
+}
+
+export async function revokeTimeout(userInternalId, reason) {
+  const resp = await fetch(`${API_BASE}/moderation/revoke-timeout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ userInternalId, reason }),
+  });
+  return await resp.json();
+}
+
+// Moderator Application API functions
+export async function checkModeratorEligibility() {
+  const resp = await fetch(`${API_BASE}/admin/check-moderator-eligibility`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+  return await resp.json();
+}
+
+export async function applyForModerator(essay, scenarioAnswers) {
+  const resp = await fetch(`${API_BASE}/admin/apply-moderator`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ essay, scenarioAnswers }),
+  });
+  return await resp.json();
+}
+
+export async function fetchModeratorApplications(status = 'pending') {
+  const resp = await fetch(`${API_BASE}/admin/moderator-applications?status=${status}`, {
+    headers: {
+      'X-Internal-Id': getInternalId(),
+    },
+  });
+  return await resp.json();
+}
+
+export async function reviewModeratorApplication(applicationId, decision, notes) {
+  const resp = await fetch(`${API_BASE}/admin/review-moderator-application`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ applicationId, decision, notes }),
+  });
+  return await resp.json();
+}
+
+export async function promoteToModerator(userInternalId, justification) {
+  const resp = await fetch(`${API_BASE}/admin/promote-to-moderator`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Id': getInternalId(),
+    },
+    body: JSON.stringify({ userInternalId, justification }),
+  });
   return await resp.json();
 }
 
 // API module exports complete
+
 
