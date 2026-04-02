@@ -2,17 +2,12 @@ const express = require('express');
 const router = express.Router();
 const Draft = require('../models/Draft');
 const Story = require('../models/Story');
+const { requireAuth } = require('../middleware/auth-consolidated');
 
-// Middleware: Check session by internalId
-function requireSession(req, res, next) {
-    const userId = req.header('X-Internal-Id');
-    if (!userId) return res.status(401).json({ error: 'Missing session' });
-    req.internalId = userId;
-    next();
-}
+// Use centralized JWT auth middleware instead of legacy header-based auth
 
 // POST /drafts/save: Save or update draft
-router.post('/save', requireSession, async (req, res) => {
+router.post('/save', requireAuth, async (req, res) => {
     try {
         const { title, text, draftId } = req.body;
 
@@ -56,7 +51,7 @@ router.post('/save', requireSession, async (req, res) => {
 });
 
 // GET /drafts: Get all user's drafts
-router.get('/', requireSession, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
     try {
         const drafts = await Draft.find({ internalAuthorId: req.internalId })
             .sort({ updatedAt: -1 })
@@ -70,7 +65,7 @@ router.get('/', requireSession, async (req, res) => {
 });
 
 // GET /drafts/:id: Get specific draft
-router.get('/:id', requireSession, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
     try {
         const draft = await Draft.findOne({
             _id: req.params.id,
@@ -89,7 +84,7 @@ router.get('/:id', requireSession, async (req, res) => {
 });
 
 // DELETE /drafts/:id: Delete draft
-router.delete('/:id', requireSession, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
     try {
         const draft = await Draft.findOneAndDelete({
             _id: req.params.id,
@@ -108,7 +103,7 @@ router.delete('/:id', requireSession, async (req, res) => {
 });
 
 // POST /drafts/:id/publish: Publish draft as story
-router.post('/:id/publish', requireSession, async (req, res) => {
+router.post('/:id/publish', requireAuth, async (req, res) => {
     try {
         const draft = await Draft.findOne({
             _id: req.params.id,

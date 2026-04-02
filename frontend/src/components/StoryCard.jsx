@@ -1,36 +1,111 @@
 import React, { useState, useEffect } from 'react';
-import { likeStory, bookmarkStory, unbookmarkStory, checkBookmark } from '../api/api';
+import { likeStory, bookmarkStory, unbookmarkStory, checkBookmark, translateText, fetchUserPreferences } from '../api/api';
+import DualArrowIcon from '../icons/DualArrowIcon';
 import ShareButton from './ShareButton';
+import { LIKE_COLORS } from '../styles/likeColors';
+import useSpeech from '../hooks/useSpeech';
 
 export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, disableLike = false }) {
 
   const [liking, setLiking] = useState(false);
   const [bookmarking, setBookmarking] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [translatedPreview, setTranslatedPreview] = useState(null);
+  const [translatedTitle, setTranslatedTitle] = useState(null);
+  const [targetLang, setTargetLang] = useState('en');
+  const [showTranslated, setShowTranslated] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState(null);
+
+  const { toggle: toggleSpeech, isSpeaking } = useSpeech(targetLang);
 
   useEffect(() => {
-    // Check if story is bookmarked on mount
+    const loadPrefs = () => {
+      fetchUserPreferences().then(res => {
+        if (res.preferences?.preferredLanguage) {
+          setTargetLang(res.preferences.preferredLanguage);
+        }
+      }).catch(() => { });
+    };
+
+    loadPrefs();
+
+    const handlePreferencesUpdate = (event) => {
+      if (event.detail?.preferences?.preferredLanguage) {
+        setTargetLang(event.detail.preferences.preferredLanguage);
+      }
+    };
+
+    window.addEventListener('preferencesUpdated', handlePreferencesUpdate);
+    return () => window.removeEventListener('preferencesUpdated', handlePreferencesUpdate);
+  }, []);
+
+  useEffect(() => {
+    setShowTranslated(false);
+    setTranslatedTitle(null);
+    setTranslatedPreview(null);
+    setTranslationError(null);
+  }, [story._id]);
+
+  useEffect(() => {
+    const loadTranslations = async () => {
+      const saved = localStorage.getItem(`translation_${story._id}`);
+      const savedLang = localStorage.getItem(`translation_lang_${story._id}`);
+
+      if (saved === 'true' && savedLang === targetLang && !showTranslated) {
+        setShowTranslated(true);
+      }
+
+      if (savedLang && savedLang !== targetLang) {
+        setShowTranslated(false);
+        setTranslatedTitle(null);
+        setTranslatedPreview(null);
+        localStorage.setItem(`translation_${story._id}`, 'false');
+        localStorage.removeItem(`translation_lang_${story._id}`);
+        return;
+      }
+
+      if (showTranslated && !translatedPreview && !translatedTitle) {
+        try {
+          const [titleResult, previewResult] = await Promise.all([
+            translateText(`${story._id}_title`, 'story_title', story.title, targetLang),
+            translateText(story._id, 'story_text', story.preview || story.text.substring(0, 200), targetLang)
+          ]);
+
+          if (titleResult.translatedText && previewResult.translatedText) {
+            setTranslatedTitle(titleResult.translatedText);
+            setTranslatedPreview(previewResult.translatedText);
+          }
+        } catch (error) {
+          console.error('Failed to load translations:', error);
+          setTranslationError('Translation failed');
+          setShowTranslated(false);
+          localStorage.setItem(`translation_${story._id}`, 'false');
+          localStorage.removeItem(`translation_lang_${story._id}`);
+          setTimeout(() => setTranslationError(null), 3000);
+        }
+      }
+    };
+
+    loadTranslations();
+  }, [showTranslated, targetLang, story._id, story.title, story.preview, story.text]);
+
+  useEffect(() => {
     if (story._id) {
       checkBookmark(story._id).then(result => {
         setIsBookmarked(result.bookmarked);
-      }).catch(() => {
-        // Silently fail if check fails
-      });
+      }).catch(() => { });
     }
   }, [story._id]);
 
   const handleLike = async (e) => {
     e.stopPropagation();
     if (liking) return;
-
     setLiking(true);
     try {
       const result = await likeStory(story._id);
       if (result.success) {
-        onLike(story._id, {
-          likes: result.likes,
-          isLikedByUser: result.liked
-        });
+        onLike(story._id, { likes: result.likes, isLikedByUser: result.liked });
       }
     } catch (error) {
       console.error('Failed to like story:', error);
@@ -41,31 +116,23 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
 
   const handleAuthorClick = (e) => {
     e.stopPropagation();
-    if (onAuthorClick) {
-      onAuthorClick();
-    }
+    if (onAuthorClick) onAuthorClick();
   };
 
   const handleBookmark = async (e) => {
     e.stopPropagation();
     if (bookmarking) return;
-
     setBookmarking(true);
     try {
       if (isBookmarked) {
         const result = await unbookmarkStory(story._id);
         if (result.success) {
           setIsBookmarked(false);
-          // Notify parent if bookmark was removed
-          if (onBookmarkRemoved) {
-            onBookmarkRemoved(story._id);
-          }
+          if (onBookmarkRemoved) onBookmarkRemoved(story._id);
         }
       } else {
         const result = await bookmarkStory(story._id);
-        if (result.success) {
-          setIsBookmarked(true);
-        }
+        if (result.success) setIsBookmarked(true);
       }
     } catch (error) {
       console.error('Failed to toggle bookmark:', error);
@@ -74,171 +141,136 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
     }
   };
 
+  const handleTranslate = async (e) => {
+    e.stopPropagation();
+    if (showTranslated) {
+      setShowTranslated(false);
+      localStorage.setItem(`translation_${story._id}`, 'false');
+      localStorage.removeItem(`translation_lang_${story._id}`);
+      return;
+    }
+    if (translatedPreview && translatedTitle) {
+      setShowTranslated(true);
+      localStorage.setItem(`translation_${story._id}`, 'true');
+      localStorage.setItem(`translation_lang_${story._id}`, targetLang);
+      return;
+    }
+    setTranslating(true);
+    setTranslationError(null);
+    try {
+      const [titleResult, previewResult] = await Promise.all([
+        translateText(`${story._id}_title`, 'story_title', story.title, targetLang),
+        translateText(story._id, 'story_text', story.preview || story.text.substring(0, 200), targetLang)
+      ]);
+      if (titleResult.translatedText && previewResult.translatedText) {
+        setTranslatedTitle(titleResult.translatedText);
+        setTranslatedPreview(previewResult.translatedText);
+        setShowTranslated(true);
+        localStorage.setItem(`translation_${story._id}`, 'true');
+        localStorage.setItem(`translation_lang_${story._id}`, targetLang);
+      } else {
+        throw new Error('Translation returned empty results');
+      }
+    } catch (error) {
+      console.error('Translation failed:', error);
+      setTranslationError('Translation failed');
+      setTimeout(() => setTranslationError(null), 3000);
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const handleSpeech = (e) => {
+    e.stopPropagation();
+    const textToSpeak = showTranslated && translatedPreview
+      ? `${translatedTitle || story.title}. ${translatedPreview}`
+      : `${story.title}. ${story.preview}`;
+    toggleSpeech(textToSpeak);
+  };
+
   const timeAgo = (date) => {
     const now = new Date();
     const posted = new Date(date);
     const diffMs = now - posted;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
-
-    if (diffDays > 0) {
-      return `${diffDays}d ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours}h ago`;
-    } else {
-      return 'Just now';
-    }
+    if (diffDays > 0) return `${diffDays}d ago`;
+    if (diffHours > 0) return `${diffHours}h ago`;
+    return 'Just now';
   };
 
   return (
-    <div
-      onClick={onRead}
-      style={{
-        background: '#fff',
-        borderRadius: '8px',
-        padding: '24px',
-        boxShadow: '0 1px 4px #efefee',
-        cursor: 'pointer',
-        transition: 'box-shadow 0.2s ease',
-        border: '1px solid #ddd'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = '0 2px 8px #e0e0e0';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = '0 1px 4px #efefee';
-      }}
-    >
+    <div className="story-card" onClick={onRead}>
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '16px'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
+      <div className="story-card__header">
+        <div className="story-card__meta">
+          {/* Avatar */}
+          {story.authorProfilePicture ? (
+            <img
+              src={story.authorProfilePicture}
+              alt={story.authorUsername}
+              className="story-card__avatar"
+            />
+          ) : (
+            <div className="story-card__avatar-placeholder">
+              {story.authorUsername?.[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+
           <button
             onClick={handleAuthorClick}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: onAuthorClick ? '#666' : '#999',
-              fontSize: '0.9em',
-              cursor: onAuthorClick ? 'pointer' : 'default',
-              padding: '0',
-              textDecoration: 'none'
-            }}
-            onMouseEnter={(e) => {
-              if (onAuthorClick) {
-                e.target.style.textDecoration = 'underline';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.textDecoration = 'none';
-            }}
+            className={`story-card__author-btn${onAuthorClick ? '' : ' story-card__author-btn--plain'}`}
           >
             @{story.authorUsername}
           </button>
-          <span style={{
-            color: '#666',
-            fontSize: '0.8em'
-          }}>
-            {timeAgo(story.createdAt)}
-          </span>
+
+          <span className="story-card__time">{timeAgo(story.createdAt)}</span>
         </div>
 
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
+        {/* Action buttons */}
+        <div className="story-card__actions">
+          {translationError && (
+            <span className="story-card__translation-error">{translationError}</span>
+          )}
+
+          {/* Translate */}
+          <button
+            onClick={handleTranslate}
+            disabled={translating}
+            className={`story-card__action-btn${showTranslated ? ' story-card__action-btn--translate-active' : ''}`}
+            title={showTranslated ? 'Show Original' : 'Translate Preview'}
+            style={{ cursor: translating ? 'wait' : 'pointer', opacity: translating ? 0.6 : 1 }}
+          >
+            <DualArrowIcon size={16} color={showTranslated ? '#4facfe' : '#778899'} />
+          </button>
+
+          {/* Speech */}
+          <button
+            onClick={handleSpeech}
+            className={`story-card__action-btn${isSpeaking ? ' story-card__action-btn--speech-active' : ''}`}
+            title={isSpeaking ? 'Stop Reading' : 'Read Aloud'}
+          >
+            {isSpeaking ? '🔊' : '🎤'}
+          </button>
+
+          {/* Bookmark */}
           <button
             onClick={handleBookmark}
             disabled={bookmarking}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: bookmarking ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '6px 8px',
-              borderRadius: '20px',
-              color: isBookmarked ? '#f39c12' : '#666',
-              fontSize: '0.9em',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (!bookmarking) {
-                e.currentTarget.style.background = '#f8f8f8';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'none';
-            }}
+            className={`story-card__action-btn${isBookmarked ? ' story-card__action-btn--bookmark-active' : ''}`}
             title={isBookmarked ? 'Remove bookmark' : 'Bookmark story'}
           >
-            <div style={{
-              width: '16px',
-              height: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              {isBookmarked ? (
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  borderTop: 'none',
-                  borderRight: 'none',
-                  borderBottom: '2px solid #f39c12',
-                  borderLeft: '2px solid #f39c12',
-                  transform: 'rotate(-45deg)',
-                  marginTop: '-2px'
-                }} />
-              ) : (
-                <div style={{
-                  width: '12px',
-                  height: '12px',
-                  borderTop: 'none',
-                  borderRight: 'none',
-                  borderBottom: '2px solid #aaa',
-                  borderLeft: '2px solid #aaa',
-                  transform: 'rotate(-45deg)',
-                  marginTop: '-2px',
-                  opacity: 0.6
-                }} />
-              )}
+            <div className="bookmark-icon">
+              <div className={`bookmark-icon__shape ${isBookmarked ? 'bookmark-icon__shape--active' : 'bookmark-icon__shape--inactive'}`} />
             </div>
           </button>
 
+          {/* Like */}
           <button
             onClick={handleLike}
             disabled={liking || disableLike}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: liking || disableLike ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              color: story.isLikedByUser ? '#e74c3c' : '#666',
-              fontSize: '0.9em',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              if (!liking && !disableLike) {
-                e.currentTarget.style.background = '#f8f8f8';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'none';
-            }}
+            className="story-card__action-btn story-card__action-btn--like"
+            style={{ color: story.isLikedByUser ? LIKE_COLORS.liked.text : LIKE_COLORS.notLiked.text }}
           >
             <div style={{
               position: 'relative',
@@ -247,31 +279,9 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
               transform: story.isLikedByUser ? 'rotate(-45deg) scale(1.1)' : 'rotate(-45deg)',
               transition: 'transform 0.2s ease'
             }}>
-              <div style={{
-                position: 'absolute',
-                width: '14px',
-                height: '14px',
-                background: story.isLikedByUser ? '#e74c3c' : '#aaa',
-                borderRadius: '3px'
-              }} />
-              <div style={{
-                position: 'absolute',
-                width: '14px',
-                height: '14px',
-                background: story.isLikedByUser ? '#e74c3c' : '#aaa',
-                borderRadius: '50%',
-                top: '-7px',
-                left: '0'
-              }} />
-              <div style={{
-                position: 'absolute',
-                width: '14px',
-                height: '14px',
-                background: story.isLikedByUser ? '#e74c3c' : '#aaa',
-                borderRadius: '50%',
-                left: '7px',
-                top: '0'
-              }} />
+              <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.primary : LIKE_COLORS.notLiked.primary, borderRadius: '3px' }} />
+              <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.secondary : LIKE_COLORS.notLiked.secondary, borderRadius: '50%', top: '-7px', left: '0' }} />
+              <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.tertiary : LIKE_COLORS.notLiked.tertiary, borderRadius: '50%', left: '7px', top: '0' }} />
             </div>
             <span>{story.likes || 0}</span>
           </button>
@@ -280,38 +290,36 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
         </div>
       </div>
 
+      {/* Cover Image */}
+      {story.coverImage?.url && story.showCoverImage && (
+        <div className="story-card__cover">
+          <img src={story.coverImage.url} alt={story.title || 'Story cover'} loading="lazy" />
+        </div>
+      )}
+
       {/* Title */}
       {story.title && (
-        <div style={{
-          fontSize: '1.2em',
-          fontWeight: '500',
-          marginBottom: '12px',
-          color: '#333',
-          lineHeight: '1.4'
-        }}>
-          {story.title}
+        <div className="story-card__title">
+          {translating ? (
+            <div className="story-card__title-skeleton" />
+          ) : (
+            showTranslated && translatedTitle ? translatedTitle : story.title
+          )}
         </div>
       )}
 
       {/* Preview */}
-      <div style={{
-        fontSize: '1em',
-        lineHeight: '1.6',
-        color: '#333',
-        whiteSpace: 'pre-wrap'
-      }}>
-        {story.preview}
+      <div className="story-card__preview">
+        {translating ? (
+          <div className="story-card__preview-skeleton">
+            <div className="story-card__preview-skeleton-line" style={{ width: '90%' }} />
+            <div className="story-card__preview-skeleton-line" style={{ width: '60%' }} />
+          </div>
+        ) : showTranslated ? translatedPreview : story.preview}
       </div>
 
       {/* Read More */}
-      <div style={{
-        marginTop: '16px',
-        fontSize: '0.9em',
-        color: '#666',
-        opacity: 0.8
-      }}>
-        Read full story →
-      </div>
+      <div className="story-card__read-more">Read full story →</div>
     </div>
   );
 }

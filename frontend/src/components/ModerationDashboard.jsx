@@ -300,7 +300,7 @@ export default function ModerationDashboard({ user, onBack }) {
                     <button
                       onClick={() => handleAction(report, report.contentType === 'story' ? 'remove_story' : 'remove_node')}
                       style={{
-                        background: '#e74c3c',
+                        background: '#c7968c',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '6px',
@@ -456,7 +456,7 @@ export default function ModerationDashboard({ user, onBack }) {
                   onClick={executeAction}
                   disabled={submitting}
                   style={{
-                    background: actionType === 'dismiss' ? '#666' : '#e74c3c',
+                    background: actionType === 'dismiss' ? '#666' : '#c7968c',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '6px',

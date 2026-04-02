@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { fetchCommunityFeed, fetchFeaturedStory, searchStories } from '../api/api';
+import { fetchCommunityFeed, fetchFollowingFeed, fetchFeaturedStory, searchStories } from '../api/api';
 import StoryCard from './StoryCard';
 import FeaturedBanner from './FeaturedBanner';
 import Leaderboard from './Leaderboard';
 import SearchBar from './SearchBar';
+import { AppSplashSkeleton, SkeletonFeaturedBanner } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
+import { cacheHas, cacheGet, cachePut } from '../utils/screenCache';
 
-export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfile, onViewThread, onModeration, onAdmin }) {
+export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfile, onHubs, onSettings, onNotifications, onAnalytics, onAdmin }) {
   const [stories, setStories] = useState([]);
   const [featuredStory, setFeaturedStory] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);   // actual network state
   const [error, setError] = useState('');
   const [sort, setSort] = useState('latest');
   const [page, setPage] = useState(1);
@@ -16,58 +19,107 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilters, setSearchFilters] = useState({});
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Minimum 1 s skeleton display so it's always visible
+  const loading = useMinLoadTime(rawLoading, 1000);
 
   useEffect(() => {
-    if (!isSearching) {
-      loadFeed();
-      loadFeaturedStory();
-    }
+    loadFeaturedStory();
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isSearching) loadFeed();
   }, [sort, isSearching]);
 
-  const loadFeed = async (pageNum = 1, reset = true) => {
+  const loadUnreadCount = async () => {
     try {
-      setLoading(pageNum === 1);
-      const result = await fetchCommunityFeed(pageNum, sort);
+      const { getUnreadNotificationCount } = await import('../api/api');
+      const result = await getUnreadNotificationCount();
+      setUnreadCount(result.count || 0);
+    } catch (error) {
+      console.debug('Failed to load notification count:', error);
+    }
+  };
 
-      if (result && result.stories) {
-        if (reset) {
-          setStories(result.stories);
-        } else {
-          setStories(prev => [...prev, ...result.stories]);
-        }
+  const loadFeed = async (pageNum = 1, reset = true) => {
+    const cacheKey = `feed:${sort}:page${pageNum}`;
 
-        setHasMore(result.pagination?.hasNext || false);
-        setPage(pageNum);
+    // If we have a fresh cached result, use it without showing the skeleton
+    if (reset && pageNum === 1 && cacheHas(cacheKey)) {
+      const cached = cacheGet(cacheKey);
+      setStories(cached.stories);
+      setHasMore(cached.hasMore);
+      setPage(1);
+      setRawLoading(false);   // no skeleton at all for cached data
+      return;
+    }
+
+    try {
+      setRawLoading(pageNum === 1);
+      setError('');
+
+      let result;
+      if (sort === 'following') {
+        result = await fetchFollowingFeed(pageNum);
       } else {
-        setStories([]);
-        setHasMore(false);
-        if (result?.error) {
-          setError(result.error);
-        }
+        result = await fetchCommunityFeed(pageNum, sort);
       }
+
+      let stories = [], hasNext = false;
+
+      if (result?.data && Array.isArray(result.data)) {
+        stories = result.data;
+        hasNext = result.pagination?.hasNext || false;
+      } else if (result?.stories && Array.isArray(result.stories)) {
+        stories = result.stories;
+        hasNext = result.pagination?.hasNext || false;
+      } else if (Array.isArray(result)) {
+        stories = result;
+        hasNext = false;
+      } else {
+        if (result?.error) setError(result.error);
+      }
+
+      if (reset) setStories(stories);
+      else setStories(prev => [...prev, ...stories]);
+
+      setHasMore(hasNext);
+      setPage(pageNum);
+
+      // Save first page results to cache
+      if (pageNum === 1) cachePut(cacheKey, { stories, hasMore: hasNext });
+
     } catch (err) {
       console.error('Feed load error:', err);
-      setError('Failed to load stories');
-      setStories([]);
+      if (stories.length === 0) setError('Failed to load stories');
       setHasMore(false);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
   const loadFeaturedStory = async () => {
+    const key = 'featured';
+    if (cacheHas(key)) {
+      setFeaturedStory(cacheGet(key));
+      return;
+    }
     try {
       const result = await fetchFeaturedStory();
       setFeaturedStory(result.featured);
+      if (result.featured) cachePut(key, result.featured);
     } catch (err) {
       console.error('Failed to load featured story:', err);
     }
   };
 
   const handleLoadMore = () => {
-    if (!loading && hasMore) {
-      loadFeed(page + 1, false);
-    }
+    if (!rawLoading && hasMore) loadFeed(page + 1, false);
   };
 
   const handleStoryUpdate = (storyId, updates) => {
@@ -78,20 +130,14 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
 
   const handleSearch = async (query, filters, pageNum = 1) => {
     try {
-      setLoading(pageNum === 1);
+      setRawLoading(pageNum === 1);
       setIsSearching(true);
       setSearchQuery(query);
       setSearchFilters(filters);
-
       const result = await searchStories(query, filters, pageNum);
-
-      if (result && result.stories) {
-        if (pageNum === 1) {
-          setStories(result.stories);
-        } else {
-          setStories(prev => [...prev, ...result.stories]);
-        }
-
+      if (result?.stories) {
+        if (pageNum === 1) setStories(result.stories);
+        else setStories(prev => [...prev, ...result.stories]);
         setHasMore(result.pagination?.hasNext || false);
         setPage(pageNum);
       } else {
@@ -104,7 +150,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
       setStories([]);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
@@ -117,101 +163,65 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
   };
 
   const handleLoadMoreSearch = () => {
-    if (!loading && hasMore && isSearching) {
+    if (!rawLoading && hasMore && isSearching) {
       handleSearch(searchQuery, searchFilters, page + 1);
     }
   };
 
-  if (loading && stories.length === 0) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#fefefd',
-        color: '#333'
-      }}>
-        <div style={{ opacity: 0.6 }}>Loading community stories...</div>
-      </div>
-    );
+  /* ── Full-page skeleton while the first batch loads ── */
+  if (loading) {
+    return <AppSplashSkeleton user={user} />;
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#fefefd',
-      color: '#333'
-    }}>
-      {/* Header */}
-      <div style={{
-        background: '#fff',
-        borderBottom: '1px solid #ddd',
-        padding: '15px 20px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{
-            fontSize: '1.3em',
-            fontWeight: 'normal',
-            color: '#333'
-          }}>
-            Calm Stories
-          </div>
+    <div className="feed">
+      {/* Sticky Header */}
+      <div className="feed__header">
+        <div className="feed__header-inner">
+          <div className="feed__logo">Calm Stories</div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button
-              onClick={onWriteStory}
-              style={{
-                padding: '8px 16px',
-                background: '#007bff',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '0.9em',
-                cursor: 'pointer'
-              }}>
+          <div className="feed__nav">
+            <button onClick={onWriteStory} className="feed__nav-btn feed__nav-btn--write">
               Write
             </button>
 
             {user?.username && (
-              <button
-                onClick={() => onProfile(user.username)}
-                style={{
-                  padding: '8px 16px',
-                  background: 'transparent',
-                  color: '#666',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  cursor: 'pointer'
-                }}>
+              <button onClick={() => onProfile(user.username)} className="feed__nav-btn feed__nav-btn--outline">
                 @{user.username}
               </button>
             )}
 
-            {user?.role === 'admin' && user?.email === 'pranav.dot.h@gmail.com' && onAdmin && (
-              <button
-                onClick={onAdmin}
-                style={{
-                  padding: '8px 16px',
-                  background: '#ff9800',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontFamily: 'Georgia, serif'
-                }}>
+            {onHubs && (
+              <button onClick={onHubs} className="feed__nav-btn feed__nav-btn--outline">
+                Hubs
+              </button>
+            )}
+
+            {onSettings && (
+              <button onClick={onSettings} className="feed__nav-btn feed__nav-btn--outline">
+                Settings
+              </button>
+            )}
+
+            {onNotifications && (
+              <button onClick={onNotifications} className="feed__notif-btn">
+                🔔
+                {unreadCount > 0 && (
+                  <span className="feed__notif-badge">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {onAnalytics && (
+              <button onClick={onAnalytics} className="feed__nav-btn feed__nav-btn--outline" title="Writer Analytics">
+                Stats
+              </button>
+            )}
+
+            {user?.role === 'admin' && onAdmin && (
+              <button onClick={onAdmin} className="feed__nav-btn feed__nav-btn--admin">
                 Admin
               </button>
             )}
@@ -219,112 +229,61 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
         </div>
       </div>
 
-      <div style={{
-        maxWidth: '1240px',
-        margin: '0 auto',
-        padding: '20px',
-        display: 'flex',
-        gap: '24px',
-        alignItems: 'flex-start'
-      }}>
+      {/* Body */}
+      <div className="feed__body">
         {/* Main Content */}
-        <div style={{
-          flex: 1,
-          maxWidth: '800px',
-          minWidth: 0
-        }}>
-          {/* Search Bar */}
-          <SearchBar
-            onSearch={handleSearch}
-            onClear={handleClearSearch}
-            isSearching={isSearching}
-          />
+        <div className="feed__main">
+          <SearchBar onSearch={handleSearch} onClear={handleClearSearch} isSearching={isSearching} />
 
-          {/* Sort Options - hidden when searching */}
+          {/* Sort tabs — hidden when searching */}
           {!isSearching && (
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              marginBottom: '30px'
-            }}>
-              {['latest', 'popular', 'trending'].map(sortOption => (
+            <div className="feed__sort">
+              {['latest', 'popular', 'trending', 'following'].map(sortOption => (
                 <button
                   key={sortOption}
                   onClick={() => setSort(sortOption)}
-                  style={{
-                    padding: '8px 16px',
-                    background: sort === sortOption ? '#f0f0f0' : 'transparent',
-                    color: sort === sortOption ? '#333' : '#666',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '0.9em',
-                    cursor: 'pointer',
-                    textTransform: 'capitalize'
-                  }}>
-                  {sortOption}
+                  className={`feed__sort-btn${sort === sortOption ? ' feed__sort-btn--active' : ''}`}
+                >
+                  {sortOption.charAt(0).toUpperCase() + sortOption.slice(1)}
                 </button>
               ))}
             </div>
           )}
 
-          {/* Search Results Header */}
+          {/* Search result header */}
           {isSearching && (
-            <div style={{
-              marginBottom: '20px',
-              padding: '12px',
-              background: '#f8f9fa',
-              borderRadius: '6px',
-              fontSize: '0.9em',
-              color: '#666'
-            }}>
+            <div className="feed__search-info">
               {searchQuery ? `Search results for "${searchQuery}"` : 'Filtered results'}
             </div>
           )}
 
-          {/* Featured Story - hidden when searching */}
+          {/* Featured Story */}
           {!isSearching && featuredStory && (
-            <div style={{
-              background: '#fff',
-              borderRadius: '8px',
-              padding: '0',
-              boxShadow: '0 1px 4px #efefee',
-              border: '1px solid #ddd',
-              marginBottom: '20px'
-            }}>
-              <FeaturedBanner
-                story={featuredStory}
-                onRead={() => onReadStory(featuredStory)}
-              />
+            <div className="feed__featured">
+              <FeaturedBanner story={featuredStory} onRead={() => onReadStory(featuredStory)} />
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="feed__error">
+              <div className="feed__error-msg">{error}</div>
+              <button
+                className="btn btn--primary"
+                onClick={() => { setError(''); loadFeed(1, true); }}
+              >
+                Retry
+              </button>
             </div>
           )}
 
           {/* Stories */}
-          {error && (
-            <div style={{
-              color: '#d44',
-              textAlign: 'center',
-              padding: '20px',
-              marginBottom: '20px'
-            }}>
-              {error}
-            </div>
-          )}
-
           {stories.length === 0 && !loading ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              opacity: 0.5,
-              fontSize: '1.1em'
-            }}>
+            <div className="feed__empty">
               {isSearching ? 'No stories found matching your search.' : 'No stories yet. Be the first to share!'}
             </div>
           ) : (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px'
-            }}>
+            <div className="feed__stories">
               {stories.map(story => (
                 <StoryCard
                   key={story._id}
@@ -332,11 +291,7 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
                   onRead={() => onReadStory(story)}
                   onLike={handleStoryUpdate}
                   onAuthorClick={() => {
-                    // Only navigate if this story is tied to a real, named user
-                    if (
-                      story.authorUsername &&
-                      story.authorUsername !== 'Anonymous'
-                    ) {
+                    if (story.authorUsername && story.authorUsername !== 'Anonymous') {
                       onProfile(story.authorUsername);
                     }
                   }}
@@ -347,44 +302,21 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onProfi
 
           {/* Load More */}
           {hasMore && (
-            <div style={{
-              textAlign: 'center',
-              marginTop: '30px'
-            }}>
+            <div className="feed__load-more">
               <button
                 onClick={isSearching ? handleLoadMoreSearch : handleLoadMore}
-                disabled={loading}
-                style={{
-                  padding: '12px 24px',
-                  background: loading ? '#bbb' : 'transparent',
-                  color: loading ? '#fff' : '#666',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  cursor: loading ? 'not-allowed' : 'pointer'
-                }}>
-                {loading ? 'Loading...' : 'Load More Stories'}
+                disabled={rawLoading}
+                className="feed__load-more-btn"
+              >
+                {rawLoading ? 'Loading...' : 'Load More Stories'}
               </button>
             </div>
           )}
         </div>
 
-        {/* Sidebar with Leaderboard (right rail) */}
-        <div
-          style={{
-            width: '380px',
-            flexShrink: 0
-          }}
-        >
-          <div
-            style={{
-              position: 'sticky',
-              // Match below-the-header offset so the rail sits under the header bar
-              top: 80,
-              height: 'calc(100vh - 80px)',
-              overflowY: 'auto'
-            }}
-          >
+        {/* Sidebar */}
+        <div className="feed__sidebar">
+          <div className="feed__sidebar-sticky">
             <Leaderboard />
           </div>
         </div>

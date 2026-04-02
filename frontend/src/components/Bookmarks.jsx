@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchBookmarks } from '../api/api';
 import StoryCard from './StoryCard';
+import { SkeletonStoryList } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
 
 export default function Bookmarks({ onBack, onReadStory, onProfile }) {
   const [bookmarks, setBookmarks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);
+  const loading = useMinLoadTime(rawLoading, 100);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -20,7 +23,7 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
     // Infinite scroll
     const handleScroll = () => {
       if (!containerRef.current || loading || !hasMore) return;
-      
+
       const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
       if (scrollHeight - scrollTop - clientHeight < 100) {
         loadBookmarks(page + 1, false);
@@ -36,16 +39,16 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
 
   const loadBookmarks = async (pageNum = 1, reset = true) => {
     try {
-      setLoading(true);
+      setRawLoading(true);
       const result = await fetchBookmarks(pageNum, 8, searchQuery);
-      
+
       if (result && result.bookmarks) {
         if (reset) {
           setBookmarks(result.bookmarks);
         } else {
           setBookmarks(prev => [...prev, ...result.bookmarks]);
         }
-        
+
         setHasMore(result.pagination?.hasNext || false);
         setPage(pageNum);
       } else {
@@ -62,7 +65,7 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
       }
       setHasMore(false);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
@@ -98,7 +101,7 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
       padding: '20px'
     }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button 
+        <button
           onClick={onBack}
           style={{
             background: 'transparent',
@@ -289,14 +292,9 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
             </div>
           )}
 
-          {loading && (
-            <div style={{
-              textAlign: 'center',
-              padding: '20px',
-              color: '#666',
-              fontSize: '0.9em'
-            }}>
-              Loading...
+          {isLoading && bookmarks.length > 0 && ( // Show more skeletons if loading more
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
+              <SkeletonStoryList count={3} />
             </div>
           )}
         </div>

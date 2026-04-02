@@ -1,218 +1,145 @@
 import React, { useState, useEffect } from 'react';
 import { fetchTopStories } from '../api/api';
 import { useNavigate } from 'react-router-dom';
+import { LIKE_COLORS } from '../styles/likeColors';
+import { SkeletonLeaderboard } from './SkeletonLoader';
+
+const PERIOD_KEY = 'calmstories_leaderboard_period';
+
+const periodLabels = {
+  '24h': 'Last 24 Hours',
+  '3d': 'Last 3 Days',
+  '1w': 'Last Week',
+  'all-time': 'All-Time Best',
+};
+
+const PERIODS = ['24h', '3d', '1w', 'all-time'];
 
 export default function Leaderboard() {
   const navigate = useNavigate();
+
+  // Restore last-used tab from localStorage, fall back to '24h'
+  const [period, setPeriod] = useState(() => {
+    const saved = localStorage.getItem(PERIOD_KEY);
+    return PERIODS.includes(saved) ? saved : '24h';
+  });
+
   const [leaderboard, setLeaderboard] = useState([]);
-  const [period, setPeriod] = useState('24h');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  // Persist selected period whenever it changes
   useEffect(() => {
-    loadLeaderboard();
+    localStorage.setItem(PERIOD_KEY, period);
+    loadLeaderboard(false);
   }, [period]);
 
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      isRefresh ? setRefreshing(true) : setLoading(true);
+      setError('');
+
       const result = await fetchTopStories(period);
-      setLeaderboard(result.leaderboard || []);
+
+      let newStories = [];
+      if (result?.data && Array.isArray(result.data)) newStories = result.data;
+      else if (result?.stories && Array.isArray(result.stories)) newStories = result.stories;
+      else if (Array.isArray(result)) newStories = result;
+
+      if (isRefresh && leaderboard.length > 0) {
+        // Smart-diff: only update changed rows
+        let firstChanged = -1;
+        for (let i = 0; i < Math.max(newStories.length, leaderboard.length); i++) {
+          const o = leaderboard[i], n = newStories[i];
+          if (!o || !n || o._id !== n._id || o.likes !== n.likes) { firstChanged = i; break; }
+        }
+        if (firstChanged >= 0) {
+          setLeaderboard(prev => {
+            const updated = [...prev];
+            for (let i = firstChanged; i < newStories.length; i++) updated[i] = newStories[i];
+            if (updated.length > newStories.length) updated.splice(newStories.length);
+            return updated;
+          });
+        }
+      } else {
+        setLeaderboard(newStories);
+      }
     } catch (err) {
       setError('Failed to load leaderboard');
       console.error('Leaderboard error:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const periodLabels = {
-    '24h': 'Last 24 Hours',
-    '3d': 'Last 3 Days',
-    '1w': 'Last Week',
-    'all-time': 'All-Time Best'
+  const handlePeriodChange = (p) => {
+    if (p !== period) setPeriod(p);
   };
 
   return (
-    <div style={{
-      background: '#fff',
-      borderRadius: '8px',
-      padding: '20px',
-      boxShadow: '0 1px 4px #efefee',
-      width: '100%',
-      border: '1px solid #ddd'
-    }}>
-      <div style={{
-        fontSize: '1.2em',
-        fontWeight: '500',
-        marginBottom: '16px',
-        color: '#333',
-        textAlign: 'left'
-      }}>
-        Top Stories
+    <div className="leaderboard">
+      {/* Title row */}
+      <div className="leaderboard__header">
+        <span className="leaderboard__title">Top Stories</span>
+        <button
+          onClick={() => loadLeaderboard(true)}
+          disabled={refreshing}
+          title="Refresh leaderboard"
+          className={`leaderboard__refresh-btn${refreshing ? ' leaderboard__refresh-btn--spinning' : ''}`}
+        >
+          ↻
+        </button>
       </div>
 
-      {/* Period Selector */}
-      <div style={{
-        display: 'flex',
-        gap: '4px',
-        marginBottom: '20px',
-        background: '#f8f9fa',
-        borderRadius: '6px',
-        padding: '4px'
-      }}>
-        {['24h', '3d', '1w', 'all-time'].map(p => (
+      {/* Period tabs */}
+      <div className="leaderboard__tabs">
+        {PERIODS.map(p => (
           <button
             key={p}
-            onClick={() => setPeriod(p)}
-            style={{
-              flex: 1,
-              padding: '6px 8px',
-              background: period === p ? '#fff' : 'transparent',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '0.8em',
-              cursor: 'pointer',
-              color: period === p ? '#333' : '#666',
-              boxShadow: period === p ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
-            }}>
+            onClick={() => handlePeriodChange(p)}
+            className={`leaderboard__tab${period === p ? ' leaderboard__tab--active' : ''}`}
+          >
             {p === 'all-time' ? 'ALL-TIME' : p.toUpperCase()}
           </button>
         ))}
       </div>
 
+      {/* Content */}
       {loading ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '20px',
-          color: '#666',
-          fontSize: '0.9em'
-        }}>
-          Loading...
-        </div>
+        <SkeletonLeaderboard />
       ) : error ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '20px',
-          color: '#d44',
-          fontSize: '0.9em'
-        }}>
-          {error}
-        </div>
+        <div className="leaderboard__error">{error}</div>
       ) : leaderboard.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '20px',
-          color: '#666',
-          fontSize: '0.9em'
-        }}>
-          No data for {periodLabels[period].toLowerCase()}
-        </div>
+        <div className="leaderboard__empty">No data for {periodLabels[period].toLowerCase()}</div>
       ) : (
         <div>
-          <div style={{
-            fontSize: '0.8em',
-            color: '#666',
-            marginBottom: '12px',
-            textAlign: 'left'
-          }}>
-            {periodLabels[period]}
-          </div>
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
+          <div className="leaderboard__period-label">{periodLabels[period]}</div>
+          <div className="leaderboard__rows">
             {leaderboard.map((entry, index) => (
               <div
-                key={entry.storyId}
-                onClick={() => navigate(`/story/${entry.storyId}`)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  background: index < 3 ? '#f8f9fa' : 'transparent',
-                  transition: 'background 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f0f0f0';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = index < 3 ? '#f8f9fa' : 'transparent';
-                }}>
+                key={entry._id || entry.storyId}
+                onClick={() => navigate(`/story/${entry._id || entry.storyId}`)}
+                className={`leaderboard__row${index < 3 ? ' leaderboard__row--top' : ''}${refreshing ? ' leaderboard__row--refreshing' : ''}`}
+              >
+                <div className="leaderboard__rank">{index + 1}.</div>
 
-                <div style={{
-                  fontSize: '0.9em',
-                  minWidth: '24px',
-                  textAlign: 'center',
-                  color: '#999'
-                }}>
-                  {index + 1}.
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '0.85em',
-                    fontWeight: index < 3 ? '500' : 'normal',
-                    color: '#333',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    marginBottom: '2px'
-                  }}>
-                    {entry.storyTitle}
+                <div className="leaderboard__info">
+                  <div className={`leaderboard__story-title${index < 3 ? ' leaderboard__story-title--bold' : ''}`}>
+                    {entry.title || entry.storyTitle}
                   </div>
-                  <div style={{
-                    fontSize: '0.75em',
-                    color: '#666'
-                  }}>
-                    by @{entry.username}
+                  <div className="leaderboard__author">
+                    by @{entry.authorUsername || entry.username}
                   </div>
                 </div>
 
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.8em',
-                  color: '#666'
-                }}>
-                  <div style={{
-                    position: 'relative',
-                    width: '12px',
-                    height: '12px',
-                    transform: 'rotate(-45deg)',
-                    marginRight: '2px'
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      width: '12px',
-                      height: '12px',
-                      background: '#e74c3c',
-                      borderRadius: '3px'
-                    }} />
-                    <div style={{
-                      position: 'absolute',
-                      width: '12px',
-                      height: '12px',
-                      background: '#e74c3c',
-                      borderRadius: '50%',
-                      top: '-6px',
-                      left: '0'
-                    }} />
-                    <div style={{
-                      position: 'absolute',
-                      width: '12px',
-                      height: '12px',
-                      background: '#e74c3c',
-                      borderRadius: '50%',
-                      left: '6px',
-                      top: '0'
-                    }} />
+                {/* Like heart icon */}
+                <div className="leaderboard__likes">
+                  <div className="leaderboard__heart">
+                    <div style={{ position: 'absolute', width: '12px', height: '12px', background: LIKE_COLORS.liked.primary, borderRadius: '3px' }} />
+                    <div style={{ position: 'absolute', width: '12px', height: '12px', background: LIKE_COLORS.liked.secondary, borderRadius: '50%', top: '-6px', left: '0' }} />
+                    <div style={{ position: 'absolute', width: '12px', height: '12px', background: LIKE_COLORS.liked.tertiary, borderRadius: '50%', left: '6px', top: '0' }} />
                   </div>
                   <span>{entry.likes}</span>
                 </div>

@@ -1,15 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { fetchUserProfile, getBookmarkCount, followUser, unfollowUser, getFollowStatus, getFollowCounts } from '../api/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { fetchUserProfile, getBookmarkCount, followUser, unfollowUser, getFollowStatus, getFollowCounts, uploadProfilePicture, deleteProfilePicture } from '../api/api';
+import { SkeletonProfile } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
 
 export default function UserProfile({ username, onBack, onReadStory, currentUser, onLogout, onViewBookmarks, onViewMyStories, onViewFollowing, onViewUserStories }) {
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);
+  const loading = useMinLoadTime(rawLoading, 1000);
   const [error, setError] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followingCount, setFollowingCount] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadProfile();
@@ -22,10 +27,10 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
 
   const loadProfile = async () => {
     try {
-      setLoading(true);
+      setRawLoading(true);
       setError('');
       const result = await fetchUserProfile(username);
-      
+
       if (result && result.user) {
         setProfile(result);
       } else {
@@ -35,7 +40,7 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
       console.error('Profile load error:', err);
       setError('Failed to load profile');
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
@@ -96,18 +101,60 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
     });
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      alert('Please upload a JPG, PNG, or WebP image');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be smaller than 5MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const result = await uploadProfilePicture(file);
+      if (result.success) {
+        // Reload profile to show new picture
+        loadProfile();
+        alert('Profile picture updated!');
+      } else {
+        alert('Failed to upload profile picture');
+      }
+    } catch (error) {
+      alert('Failed to upload profile picture');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveProfilePicture = async () => {
+    if (!confirm('Remove your profile picture?')) return;
+    try {
+      const result = await deleteProfilePicture();
+      if (result.success) {
+        loadProfile();
+        alert('Profile picture removed');
+      }
+    } catch (error) {
+      alert('Failed to remove profile picture');
+    }
+  };
+
   if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fefefd', color: '#333' }}>
-        <div style={{ opacity: 0.6 }}>Loading profile...</div>
-      </div>
-    );
+    return <SkeletonProfile />;
   }
 
   if (error || !profile || !profile.user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fefefd', color: '#333', padding: '20px' }}>
-        <div style={{ color: '#d44', marginBottom: '20px' }}>{error || 'Profile not found'}</div>
+        <div style={{ color: '#c7968c', marginBottom: '20px' }}>{error || 'Profile not found'}</div>
         <button onClick={onBack} style={{ padding: '10px 20px', background: '#fff', color: '#333', border: '1px solid #ddd' }}>Back to Community</button>
       </div>
     );
@@ -116,7 +163,7 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
   return (
     <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button 
+        <button
           onClick={onBack}
           style={{
             background: 'transparent',
@@ -131,61 +178,156 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
 
         {/* Profile Header */}
         <div style={{ background: '#fff', borderRadius: '8px', padding: '32px', boxShadow: '0 1px 4px #efefee', marginBottom: '30px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <div style={{ fontSize: '2em', color: '#333' }}>@{profile.user.username}</div>
-            {currentUser && currentUser.username !== username && (
-              <button
-                onClick={handleToggleFollow}
-                disabled={followLoading}
-                style={{
-                  background: '#000',
-                  color: '#fff',
-                  border: '1px solid #000',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '0.9em',
-                  cursor: followLoading ? 'not-allowed' : 'pointer'
+          <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
+            {/* Profile Picture */}
+            <div style={{ position: 'relative' }}>
+              {profile.user.profilePicture ? (
+                <img
+                  src={profile.user.profilePicture}
+                  alt={profile.user.username}
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid #ddd'
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '50%',
+                  background: '#f0f0f0',
+                  border: '2px solid #ddd',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '36px',
+                  color: '#666',
+                  fontWeight: '600'
                 }}>
-                {isFollowing ? 'Following' : 'Follow'}
-              </button>
-            )}
-          </div>
-          
-          {profile.user.displayName && (
-            <div style={{ fontSize: '1.2em', color: '#666', marginBottom: '16px' }}>
-              {profile.user.displayName}
+                  {profile.user.username?.[0]?.toUpperCase()}
+                </div>
+              )}
+              {currentUser && currentUser.username === username && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    style={{
+                      padding: '6px 12px',
+                      background: '#3d5a80',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: uploading ? 'not-allowed' : 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    {uploading ? 'Uploading...' : 'Change'}
+                  </button>
+                  {profile.user.profilePicture && (
+                    <button
+                      onClick={handleRemoveProfilePicture}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'transparent',
+                        color: '#666',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
 
-          <div style={{ display: 'flex', gap: '24px', marginBottom: '16px', fontSize: '0.9em', color: '#666' }}>
-            <span>{profile.stats.totalStories} stories</span>
-            <span>{profile.stats.totalLikes} total likes</span>
-            <span>Joined {formatDate(profile.user.joinedAt)}</span>
+            {/* Profile Info */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                <div style={{ fontSize: '2em', color: '#333' }}>@{profile.user.username}</div>
+                {currentUser && currentUser.username !== username && (
+                  <button
+                    onClick={handleToggleFollow}
+                    disabled={followLoading}
+                    style={{
+                      background: '#000',
+                      color: '#fff',
+                      border: '1px solid #000',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '0.9em',
+                      cursor: followLoading ? 'not-allowed' : 'pointer'
+                    }}>
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                )}
+              </div>
+
+              {profile.user.displayName && (
+                <div style={{ fontSize: '1.2em', color: '#666', marginBottom: '16px' }}>
+                  {profile.user.displayName}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '24px', marginBottom: '16px', fontSize: '0.9em', color: '#666' }}>
+                <span>{profile.stats.totalStories} stories</span>
+                <span>{profile.stats.totalLikes} total likes</span>
+                <span>Joined {formatDate(profile.user.joinedAt)}</span>
+              </div>
+            </div>
           </div>
-          
+
           {currentUser && currentUser.username === username && (
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              style={{ marginTop: '16px', padding: '10px 20px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.9em', cursor: 'pointer' }}>
+              style={{ marginTop: '16px', padding: '10px 20px', background: '#c7968c', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.9em', cursor: 'pointer' }}>
               Sign Out
             </button>
           )}
         </div>
-        
+
         {showLogoutConfirm && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ background: '#fff', borderRadius: '8px', padding: '32px', maxWidth: '400px', width: '90%' }}>
               <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.2em' }}>Sign Out?</h3>
-              <p style={{ fontSize: '0.95em', color: '#666', marginBottom: '24px', lineHeight: '1.6' }}>Are you 100% sure you want to sign out? You'll need to log in again with your email to access your account.</p>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <p style={{ fontSize: '0.95em', color: '#666', marginBottom: '24px', lineHeight: '1.6' }}>Are you sure you want to sign out?</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <button
                   onClick={() => { setShowLogoutConfirm(false); onLogout && onLogout(); }}
-                  style={{ flex: 1, padding: '10px 20px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                  Yes, Sign Out
+                  style={{ padding: '12px 20px', background: '#c7968c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Sign Out (This Device)
                 </button>
+
+                <button
+                  onClick={async () => {
+                    if (confirm('This will invalid all active sessions on other computers/phones. Continue?')) {
+                      setShowLogoutConfirm(false);
+                      // api.logout now calls /logout-all which invalidates all tokens
+                      await import('../api/api').then(mod => mod.logout());
+                      onLogout && onLogout();
+                    }
+                  }}
+                  style={{ padding: '12px 20px', background: '#fff', color: '#d32f2f', border: '2px solid #d32f2f', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Log Out Everywhere (All Devices)
+                </button>
+
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  style={{ flex: 1, padding: '10px 20px', background: 'transparent', color: '#666', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer' }}>
+                  style={{ padding: '12px 20px', background: 'transparent', color: '#666', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer' }}>
                   Cancel
                 </button>
               </div>

@@ -2,564 +2,872 @@ const express = require('express');
 const router = express.Router();
 const Story = require('../models/Story');
 const User = require('../models/User');
+const Like = require('../models/Like');
 
-const SOFT_WORD_LIMIT = 800;
+const Follow = require('../models/Follow');
+const ReadSession = require('../models/ReadSession');
+const { requireAuth, optionalAuth } = require('../middleware/auth-consolidated');
+const { checkAndUpdateStoryPublishCooldown } = require('../utils/cooldownManager');
+const { sanitizeStoryMiddleware } = require('../middleware/inputSanitization');
+const { getPaginationParams, getPaginationMeta } = require('../utils/pagination');
+const { logAuthEvent } = require('../utils/logger');
+const rateLimit = require('express-rate-limit');
+const { ipKey } = require('express-rate-limit');
 
-// Middleware: Check session by internalId (dev demo, not JWT for now)
-function requireSession(req, res, next) {
-  const userId = req.header('X-Internal-Id');
-  if (!userId) return res.status(401).json({ error: 'Missing session' });
-  req.internalId = userId;
-  next();
-}
-
-// POST /stories/submit: Submit new story (lockout/enforce 1 per 12h for users, unlimited for admins)
-router.post('/submit', requireSession, async (req, res) => {
-  const { text, title } = req.body;
-
-  // Validate title (required, at least 3 words)
-  if (!title || typeof title !== 'string') {
-    return res.status(400).json({ error: 'Title is required' });
-  }
-
-  const titleWords = title.trim().split(/\s+/).filter(word => word.length > 0);
-  if (titleWords.length < 3) {
-    return res.status(400).json({ error: 'Title must contain at least 3 words' });
-  }
-
-  if (!text || typeof text !== 'string') {
-    return res.status(400).json({ error: 'Story content is required' });
-  }
-
-  const wordCount = text.trim().split(/\s+/).length;
-  if (wordCount > SOFT_WORD_LIMIT) {
-    // Calm nudge: Not hard error, but feedback
-    return res.status(400).json({ error: 'Try to keep stories under 800 words.' });
-  }
-
-  // Check last story time (12h lockout for users, no limit for admins)
-  const user = await User.findOne({ internalId: req.internalId });
-
-  // Admins can post unlimited stories
-  if (user && user.role !== 'admin') {
-    const latest = await Story.findOne({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
-    if (latest && Date.now() - latest.createdAt.getTime() < 12 * 60 * 60 * 1000) {
-      return res.status(403).json({ error: 'You can only write once every 12 hours.' });
-    }
-  }
-
-  const story = new Story({
-    internalAuthorId: req.internalId,
-    title: title.trim(),
-    text,
-    wordCount,
-    locked: true,
-    publishedAt: new Date(), // Track when published for grace period
-  });
-  await story.save();
-  res.json({ success: true, storyId: story._id });
+// Rate limiter for public endpoints - 100 requests per 15 minutes
+const publicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { success: false, error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.internalId || ipKey(req)
 });
 
-// POST /stories/:id/edit: Edit story within 15-minute grace period (CRITICAL FIX #3)
-router.post('/:id/edit', requireSession, async (req, res) => {
+// POST /stories/submit - Submit new story
+router.post('/submit', requireAuth, sanitizeStoryMiddleware, async (req, res) => {
   try {
-    const { title, text } = req.body;
-    const story = await Story.findById(req.params.id);
+    const { text, title } = req.body;
 
-    if (!story) {
-      return res.status(404).json({ error: 'Story not found' });
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Story text is required' });
     }
 
-    // Check ownership
-    if (story.internalAuthorId !== req.internalId) {
-      return res.status(403).json({ error: 'You can only edit your own stories' });
+    // Validate minimum content length (at least 10 characters)
+    if (text.trim().length < 10) {
+      return res.status(400).json({ success: false, error: 'Story must be at least 10 characters long' });
     }
 
-    // Check grace period (15 minutes = 900,000 ms)
-    const gracePeriod = 15 * 60 * 1000;
-    const timeSincePublish = Date.now() - story.publishedAt.getTime();
-
-    if (timeSincePublish > gracePeriod) {
-      const minutesAgo = Math.floor(timeSincePublish / 60000);
-      return res.status(403).json({
-        error: `Grace period expired. Story was published ${minutesAgo} minutes ago.`,
-        gracePeriodExpired: true
+    // Check cooldown
+    const cooldownCheck = await checkAndUpdateStoryPublishCooldown(req.internalId, 12);
+    if (!cooldownCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: cooldownCheck.message,
+        timeRemaining: cooldownCheck.timeRemaining
       });
     }
 
-    // Check edit limit (max 3 edits to prevent abuse)
-    if (story.editCount >= 3) {
-      return res.status(403).json({
-        error: 'Maximum edit limit reached (3 edits per story)',
-        editLimitReached: true
-      });
-    }
-
-    // Validate title (required, at least 3 words)
-    if (!title || typeof title !== 'string') {
-      return res.status(400).json({ error: 'Title is required' });
-    }
-
-    const titleWords = title.trim().split(/\s+/).filter(word => word.length > 0);
-    if (titleWords.length < 3) {
-      return res.status(400).json({ error: 'Title must contain at least 3 words' });
-    }
-
-    if (!text || typeof text !== 'string') {
-      return res.status(400).json({ error: 'Story content is required' });
-    }
-
+    // Calculate word count
     const wordCount = text.trim().split(/\s+/).length;
-    if (wordCount > 800) {
-      return res.status(400).json({ error: 'Try to keep stories under 800 words.' });
+    if (wordCount > 20000) {
+      return res.status(400).json({ success: false, error: 'Story exceeds 20,000 word limit' });
     }
 
-    // Update story
-    story.title = title.trim();
-    story.text = text;
-    story.wordCount = wordCount;
-    story.lastEditedAt = new Date();
-    story.editCount = (story.editCount || 0) + 1;
-    await story.save();
+    const story = new Story({
+      internalAuthorId: req.internalId,
+      title: title || text.substring(0, 100),
+      text,
+      wordCount,
+      publishedAt: new Date()
+    });
 
-    const timeRemaining = gracePeriod - timeSincePublish;
-    const minutesRemaining = Math.floor(timeRemaining / 60000);
+    await story.save();
+    logAuthEvent('STORY_PUBLISHED', req.internalId, true, { storyId: story._id });
 
     res.json({
       success: true,
-      story,
-      editsRemaining: 3 - story.editCount,
-      gracePeriodRemaining: minutesRemaining
-    });
-  } catch (error) {
-    console.error('Edit story error:', error);
-    res.status(500).json({ error: 'Failed to edit story' });
-  }
-});
-
-// GET /stories/mine: List my past stories (private archive)
-router.get('/mine', requireSession, async (req, res) => {
-  const stories = await Story.find({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
-  res.json(stories);
-});
-
-// GET /stories/random: Get random story for reader (excluding own)
-router.get('/random', requireSession, async (req, res) => {
-  try {
-    const stories = await Story.find({ internalAuthorId: { $ne: req.internalId }, hidden: false });
-    if (!stories.length) {
-      return res.json({ error: 'No stories available' });
-    }
-    const randomStory = stories[Math.floor(Math.random() * stories.length)];
-    res.json(randomStory);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch story' });
-  }
-});
-
-// GET /stories/next: Get next story for reader (excluding own, sort by resonance)
-router.get('/next', requireSession, async (req, res) => {
-  // Find all non-own stories, sort by: completion rate DESC, avg time spent DESC, reactions DESC
-  const allStories = await Story.find({ internalAuthorId: { $ne: req.internalId }, hidden: false });
-  if (!allStories.length) return res.json({ none: true });
-
-  // Load resonance metrics
-  const ReadSession = require('../models/ReadSession');
-  const Reaction = require('../models/Reaction');
-  const metrics = await Promise.all(allStories.map(async (s) => {
-    const reads = await ReadSession.find({ storyId: s._id });
-    const completion = reads.length ? reads.filter(r => r.percentRead >= 90).length / reads.length : 0;
-    const avgTime = reads.length ? reads.reduce((a, r) => a + (r.timeSpent || 0), 0) / reads.length : 0;
-    const reacts = await Reaction.countDocuments({ storyId: s._id });
-    return {
-      story: s,
-      resonance: completion * 2 + (avgTime / 4000) + reacts * 0.2,
-    };
-  }));
-  metrics.sort((a, b) => b.resonance - a.resonance);
-  res.json({ story: metrics[0].story });
-});
-
-// GET /stories/can-write: Check if user can write (12h lockout for users, unlimited for admins)
-router.get('/can-write', requireSession, async (req, res) => {
-  // Check if user is admin
-  const user = await User.findOne({ internalId: req.internalId });
-
-  // Admins can always write
-  if (user && user.role === 'admin') {
-    return res.json({
-      canWrite: true,
-      timeUntilNext: 0,
-      isAdmin: true
-    });
-  }
-
-  const latest = await Story.findOne({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
-  if (!latest) {
-    return res.json({ canWrite: true });
-  }
-  const timeSinceLastStory = Date.now() - latest.createdAt.getTime();
-  const canWrite = timeSinceLastStory >= 12 * 60 * 60 * 1000;
-  const timeUntilNext = canWrite ? 0 : (12 * 60 * 60 * 1000) - timeSinceLastStory;
-
-  res.json({
-    canWrite,
-    timeUntilNext,
-    lastStoryTime: latest.createdAt
-  });
-});
-
-// GET /stories/feed: Get community feed with pagination
-router.get('/feed', requireSession, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const sort = req.query.sort || 'latest'; // latest, popular, trending
-    const skip = (page - 1) * limit;
-
-    let findQuery = { hidden: false }; // Exclude hidden stories
-    let sortQuery = {};
-
-    switch (sort) {
-      case 'popular':
-        sortQuery = { likes: -1, createdAt: -1 };
-        break;
-      case 'trending':
-        // Stories with likes in last 7 days
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        findQuery = { createdAt: { $gte: weekAgo }, hidden: false };
-        sortQuery = { likes: -1, createdAt: -1 };
-        break;
-      default:
-        sortQuery = { createdAt: -1 };
-    }
-
-    const stories = await Story.find(findQuery)
-      .sort(sortQuery)
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    // Get author usernames
-    const User = require('../models/User');
-    const enrichedStories = await Promise.all(stories.map(async (story) => {
-      const author = await User.findOne({ internalId: story.internalAuthorId });
-      return {
-        ...story,
-        authorUsername: author?.username || 'Anonymous',
-        preview: story.text.substring(0, 200) + (story.text.length > 200 ? '...' : ''),
-        isLikedByUser: (story.likedBy || []).includes(req.internalId),
-        likes: story.likes || 0,
-        likedBy: story.likedBy || []
-      };
-    }));
-
-    const totalStories = await Story.countDocuments({ hidden: false });
-
-    res.json({
-      stories: enrichedStories,
-      pagination: {
-        page,
-        limit,
-        total: totalStories,
-        pages: Math.ceil(totalStories / limit),
-        hasNext: page * limit < totalStories,
-        hasPrev: page > 1
+      message: 'Story published successfully',
+      story: {
+        _id: story._id,
+        title: story.title,
+        wordCount: story.wordCount,
+        createdAt: story.createdAt
       }
     });
   } catch (error) {
-    console.error('Feed error:', error);
-    res.status(500).json({ error: 'Failed to fetch feed' });
+    console.error('Story submission error:', error);
+    res.status(500).json({ success: false, error: 'Failed to publish story' });
   }
 });
 
-/* MOVED TO END OF FILE - DO NOT UNCOMMENT
-// GET /stories/:id: Get single story by ID
-router.get('/:id', requireSession, async (req, res) => {
+// GET /stories/random - Fetch random story
+router.get('/random', publicLimiter, optionalAuth, async (req, res) => {
   try {
-    const story = await Story.findById(req.params.id);
+    const { getActiveStoriesFilter } = require('../utils/storyQueryHelper');
+    const story = await Story.aggregate([
+      { $match: { ...getActiveStoriesFilter(), threadLocked: false } },
+      { $sample: { size: 1 } }
+    ]);
 
+    if (!story || story.length === 0) {
+      return res.json({ success: false, error: 'No stories available' });
+    }
+
+    const storyData = story[0];
+    const author = await User.findOne({ internalId: storyData.internalAuthorId });
+
+    res.json({
+      success: true,
+      story: {
+        _id: storyData._id,
+        title: storyData.title,
+        text: storyData.text,
+        preview: storyData.text.substring(0, 200) + '...',
+        wordCount: storyData.wordCount,
+        likes: storyData.likes,
+        authorUsername: author?.username || 'Anonymous',
+        authorDisplayName: author?.displayName || 'Anonymous',
+        authorProfilePicture: author?.profilePicture?.url,
+        createdAt: storyData.createdAt,
+        isLikedByUser: req.internalId ? storyData.likedBy?.includes(req.internalId) : false
+      }
+    });
+  } catch (error) {
+    console.error('Random story error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch story' });
+  }
+});
+
+// GET /stories/mine - Fetch user's own stories
+router.get('/mine', requireAuth, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+
+    const total = await Story.countDocuments({ internalAuthorId: req.internalId });
+    const stories = await Story.find({ internalAuthorId: req.internalId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      success: true,
+      stories: stories.map(s => ({
+        _id: s._id,
+        title: s.title,
+        wordCount: s.wordCount,
+        likes: s.likes,
+        createdAt: s.createdAt,
+        hidden: s.hidden
+      })),
+      pagination: getPaginationMeta(total, page, limit)
+    });
+  } catch (error) {
+    console.error('Fetch user stories error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch stories' });
+  }
+
+});
+
+// GET /stories/analytics - Get aggregated analytics for author
+router.get('/analytics', requireAuth, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const limitNum = parseInt(limit) || 3; // Default to 3 as requested
+
+    // 1. Fetch ALL stories for global stats (views, reads, chart)
+    const allStories = await Story.find({ internalAuthorId: req.internalId }).select('_id title createdAt likes wordCount');
+
+    if (allStories.length === 0) {
+      return res.json({
+        success: true,
+        stats: { totalViews: 0, totalReads: 0, totalLikes: 0, storyCount: 0 },
+        dailyStats: [],
+        stories: [],
+        pagination: getPaginationMeta(0, page, limitNum)
+      });
+    }
+
+    const allStoryIds = allStories.map(s => s._id);
+
+    // 2. Aggregate global views/reads
+    const stats = await ReadSession.aggregate([
+      { $match: { storyId: { $in: allStoryIds } } },
+      {
+        $group: {
+          _id: '$storyId',
+          views: { $sum: 1 },
+          reads: { $sum: { $cond: [{ $gte: ['$percentRead', 0.9] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    // 3. Aggregate daily stats (last 30 days) - GLOBAL
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const viewsByDate = await ReadSession.aggregate([
+      {
+        $match: {
+          storyId: { $in: allStoryIds },
+          startedAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$startedAt" } },
+          views: { $sum: 1 },
+          reads: { $sum: { $cond: [{ $gte: ['$percentRead', 0.9] }, 1, 0] } }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Map stats for easy lookup
+    const statsMap = {};
+    stats.forEach(s => {
+      statsMap[s._id.toString()] = s;
+    });
+
+    // Calculate totals
+    let totalViews = 0;
+    let totalReads = 0;
+    let totalLikes = 0;
+
+    allStories.forEach(s => {
+      const stat = statsMap[s._id.toString()] || { views: 0, reads: 0 };
+      totalViews += stat.views;
+      totalReads += stat.reads;
+      totalLikes += s.likes;
+    });
+
+    // 4. Fetch PAGINATED stories for the list
+    // We can't reuse `allStories` effectively because we need them sorted by date and sliced
+    // It's cleaner to query DB or slice the array. Since we already have allStories, slicing is cheaper if count is low (<1000).
+    // But for scalability, let's just slice the array since we likely won't have millions of stories per user yet.
+
+    // Sort by createdAt desc
+    allStories.sort((a, b) => b.createdAt - a.createdAt);
+
+    // Slice for pagination
+    // skip is calculated by getPaginationParams: (page - 1) * limit
+    const paginatedStories = allStories.slice(skip, skip + limitNum);
+
+    const enrichedStories = paginatedStories.map(s => {
+      const stat = statsMap[s._id.toString()] || { views: 0, reads: 0 };
+      return {
+        _id: s._id,
+        title: s.title,
+        createdAt: s.createdAt,
+        views: stat.views,
+        reads: stat.reads,
+        likes: s.likes,
+        wordCount: s.wordCount
+      };
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalViews,
+        totalReads,
+        totalLikes,
+        storyCount: allStories.length
+      },
+      dailyStats: viewsByDate,
+      stories: enrichedStories,
+      pagination: getPaginationMeta(allStories.length, page, limitNum)
+    });
+
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch analytics' });
+  }
+});
+
+// GET /stories/following - Fetch stories from followed authors
+router.get('/following', requireAuth, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+
+    // 1. Get list of authors user follows
+    const follows = await Follow.find({ followerInternalId: req.internalId });
+    const followingIds = follows.map(f => f.followingInternalId);
+
+    if (followingIds.length === 0) {
+      return res.json({
+        success: true,
+        stories: [],
+        pagination: getPaginationMeta(0, page, limit),
+        message: 'You are not following anyone yet.'
+      });
+    }
+
+    // 2. Query stories
+    const total = await Story.countDocuments({
+      internalAuthorId: { $in: followingIds },
+      hidden: false
+    });
+
+    // Use aggregation to avoid N+1 query
+    const stories = await Story.aggregate([
+      {
+        $match: {
+          internalAuthorId: { $in: followingIds },
+          hidden: false
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'internalAuthorId',
+          foreignField: 'internalId',
+          as: 'author'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          text: { $substr: ['$text', 0, 200] },
+          wordCount: 1,
+          likes: 1,
+          likedBy: 1,
+          createdAt: 1,
+          authorUsername: { $arrayElemAt: ['$author.username', 0] },
+          authorDisplayName: { $arrayElemAt: ['$author.displayName', 0] },
+          authorProfilePicture: { $arrayElemAt: ['$author.profilePicture.url', 0] }
+        }
+      }
+    ]);
+
+    const enriched = stories.map(s => ({
+      _id: s._id,
+      title: s.title,
+      text: s.text + '...',
+      preview: s.text + '...',
+      wordCount: s.wordCount,
+      likes: s.likes,
+      authorUsername: s.authorUsername || 'Anonymous',
+      authorDisplayName: s.authorDisplayName || 'Anonymous',
+      authorProfilePicture: s.authorProfilePicture,
+      createdAt: s.createdAt,
+      isLikedByUser: req.internalId ? s.likedBy?.includes(req.internalId) : false
+    }));
+
+    res.json({
+      success: true,
+      stories: enriched,
+      pagination: getPaginationMeta(total, page, limit)
+    });
+  } catch (error) {
+    console.error('Following feed error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch following feed' });
+  }
+});
+
+// GET /stories/can-write - Check if user can write (cooldown check)
+router.get('/can-write', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findOne({ internalId: req.internalId });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const now = new Date();
+    const cooldownTime = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+
+    const canWrite = !user.lastStoryPublishedAt || user.lastStoryPublishedAt < cooldownTime;
+
+    if (!canWrite) {
+      const timeRemaining = user.lastStoryPublishedAt.getTime() + (12 * 60 * 60 * 1000) - now.getTime();
+      return res.json({
+        success: true,
+        canWrite: false,
+        timeRemaining: Math.ceil(timeRemaining / 1000),
+        message: `Please wait ${Math.ceil(timeRemaining / (60 * 60 * 1000))} hours before writing again`
+      });
+    }
+
+    res.json({ success: true, canWrite: true });
+  } catch (error) {
+    console.error('Can write check error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check write status' });
+  }
+});
+
+// GET /stories/feed - Fetch community feed
+router.get('/feed', optionalAuth, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const sort = req.query.sort || 'latest'; // latest, trending, most-liked
+
+    let sortOption = { createdAt: -1 };
+    if (sort === 'trending') {
+      sortOption = { likes: -1, createdAt: -1 };
+    } else if (sort === 'most-liked') {
+      sortOption = { likes: -1 };
+    }
+
+    const total = await Story.countDocuments({ hidden: false });
+
+    // Use aggregation to avoid N+1 query
+    const stories = await Story.aggregate([
+      { $match: { hidden: false } },
+      { $sort: sortOption },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'internalAuthorId',
+          foreignField: 'internalId',
+          as: 'author'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          text: { $substr: ['$text', 0, 200] },
+          wordCount: 1,
+          likes: 1,
+          likedBy: 1,
+          createdAt: 1,
+          authorUsername: { $arrayElemAt: ['$author.username', 0] },
+          authorDisplayName: { $arrayElemAt: ['$author.displayName', 0] },
+          authorProfilePicture: { $arrayElemAt: ['$author.profilePicture.url', 0] }
+        }
+      }
+    ]);
+
+    const enriched = stories.map(s => ({
+      _id: s._id,
+      title: s.title,
+      text: s.text + '...',
+      preview: s.text + '...',
+      wordCount: s.wordCount,
+      likes: s.likes,
+      authorUsername: s.authorUsername || 'Anonymous',
+      authorDisplayName: s.authorDisplayName || 'Anonymous',
+      authorProfilePicture: s.authorProfilePicture,
+      createdAt: s.createdAt,
+      isLikedByUser: req.internalId ? s.likedBy?.includes(req.internalId) : false
+    }));
+
+    res.json({
+      success: true,
+      stories: enriched,
+      pagination: getPaginationMeta(total, page, limit)
+    });
+  } catch (error) {
+    console.error('Feed fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch feed' });
+  }
+});
+
+// GET /stories/featured - Fetch featured story
+router.get('/featured', optionalAuth, async (req, res) => {
+  try {
+    const story = await Story.findOne({ isFeatured: true, hidden: false });
     if (!story) {
-      return res.status(404).json({ error: 'Story not found' });
+      return res.json({ success: false, error: 'No featured story' });
     }
 
-    if (story.hidden) {
-      return res.status(404).json({ error: 'Story not found' });
-    }
-
-    // Get author username
-    const User = require('./models/User');
     const author = await User.findOne({ internalId: story.internalAuthorId });
 
     res.json({
-      ...story.toObject(),
-      authorUsername: author?.username || 'Anonymous',
-      isLikedByUser: (story.likedBy || []).includes(req.internalId),
-      likes: story.likes || 0
-    });
-  } catch (error) {
-    console.error('Get story error:', error);
-    res.status(500).json({ error: 'Failed to fetch story' });
-  }
-});
-*/
-
-// GET /stories/featured: Get current featured story
-router.get('/featured', async (req, res) => {
-  try {
-    const featuredStory = await Story.findOne({ isFeatured: true });
-    if (!featuredStory) {
-      return res.json({ featured: null });
-    }
-
-    const User = require('../models/User');
-    const author = await User.findOne({ internalId: featuredStory.internalAuthorId });
-
-    res.json({
-      featured: {
-        ...featuredStory.toObject(),
-        authorUsername: author?.username || 'Anonymous'
+      success: true,
+      story: {
+        _id: story._id,
+        title: story.title,
+        text: story.text,
+        preview: story.text.substring(0, 200) + '...',
+        wordCount: story.wordCount,
+        likes: story.likes,
+        authorUsername: author?.username || 'Anonymous',
+        authorDisplayName: author?.displayName || 'Anonymous',
+        authorProfilePicture: author?.profilePicture?.url,
+        createdAt: story.createdAt,
+        isLikedByUser: req.internalId ? story.likedBy?.includes(req.internalId) : false
       }
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch featured story' });
+    console.error('Featured story error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch featured story' });
   }
 });
 
-// POST /stories/like: Like or unlike a story
-router.post('/like', requireSession, async (req, res) => {
+// GET /stories/:storyId - Fetch specific story
+router.get('/:storyId', optionalAuth, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.storyId);
+    if (!story || story.hidden) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+
+    const author = story.internalAuthorId ? await User.findOne({ internalId: story.internalAuthorId }) : null;
+
+    res.json({
+      success: true,
+      story: {
+        _id: story._id,
+        title: story.title || '',
+        text: story.text || '',
+        preview: (story.text || '').substring(0, 200) + '...',
+        wordCount: story.wordCount || 0,
+        likes: Math.max(0, story.likes || 0),
+        authorUsername: author?.username || 'Anonymous',
+        authorDisplayName: author?.displayName || 'Anonymous',
+        authorProfilePicture: author?.profilePicture?.url || null,
+        internalAuthorId: story.internalAuthorId,
+        createdAt: story.createdAt,
+        isLikedByUser: req.internalId && story.likedBy ? story.likedBy.includes(req.internalId) : false,
+        threadLocked: story.threadLocked || false
+      }
+    });
+  } catch (error) {
+    console.error('Story fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch story' });
+  }
+});
+
+// POST /stories/like - Like/Unlike a story
+router.post('/like', requireAuth, async (req, res) => {
   try {
     const { storyId } = req.body;
     if (!storyId) {
-      return res.status(400).json({ error: 'Story ID required' });
+      return res.status(400).json({ success: false, error: 'Story ID required' });
     }
 
     const story = await Story.findById(storyId);
     if (!story) {
-      return res.status(404).json({ error: 'Story not found' });
+      return res.status(404).json({ success: false, error: 'Story not found' });
     }
 
-    // Check if user already liked this story
-    const alreadyLiked = story.likedBy.includes(req.internalId);
-
-    if (alreadyLiked) {
-      // Unlike
-      story.likedBy = story.likedBy.filter(id => id !== req.internalId);
-      story.likes = Math.max(0, story.likes - 1);
-    } else {
-      // Like
-      story.likedBy.push(req.internalId);
-      story.likes += 1;
-    }
-
-    await story.save();
-
-    res.json({
-      success: true,
-      liked: !alreadyLiked,
-      likes: story.likes
+    // Check if already liked using BOTH sources for data consistency
+    const existingLike = await Like.findOne({
+      userInternalId: req.internalId,
+      storyId
     });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to like story' });
-  }
-});
 
-// GET /stories/search: Search stories with filters
-router.get('/search', requireSession, async (req, res) => {
-  try {
-    const {
-      q, // search query (title, content, author)
-      minLikes,
-      maxLikes,
-      minWords,
-      maxWords,
-      dateFrom, // ISO date string
-      dateTo, // ISO date string
-      page = 1,
-      limit = 10
-    } = req.query;
+    const isLikedInArray = story.likedBy?.includes(req.internalId);
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    let findQuery = { hidden: false };
-
-    // Text search: search in title, text, or author username
-    if (q && q.trim()) {
-      const searchTerm = q.trim();
-
-      // First, find users matching the search term
-      const matchingUsers = await User.find({
-        username: { $regex: searchTerm, $options: 'i' }
-      }).select('internalId');
-      const matchingUserIds = matchingUsers.map(u => u.internalId);
-
-      // Build text search query
-      const textSearchQuery = {
-        $or: [
-          { title: { $regex: searchTerm, $options: 'i' } },
-          { text: { $regex: searchTerm, $options: 'i' } },
-          ...(matchingUserIds.length > 0 ? [{ internalAuthorId: { $in: matchingUserIds } }] : [])
-        ]
-      };
-
-      // If we have other filters, combine with $and, otherwise use text search directly
-      if (minLikes || maxLikes || minWords || maxWords || dateFrom || dateTo) {
-        if (!findQuery.$and) findQuery.$and = [];
-        findQuery.$and.push(textSearchQuery);
-      } else {
-        Object.assign(findQuery, textSearchQuery);
+    // Data consistency check: if mismatch, fix it
+    if (existingLike && !isLikedInArray) {
+      // Like record exists but not in array - add to array
+      await Story.findByIdAndUpdate(storyId, {
+        $addToSet: { likedBy: req.internalId }
+      });
+    } else if (!existingLike && isLikedInArray) {
+      // Array has like but no Like record - create it
+      try {
+        await Like.create({
+          userInternalId: req.internalId,
+          storyId
+        });
+      } catch (err) {
+        // Unique constraint violation - already exists, ignore
+        if (err.code !== 11000) throw err;
       }
     }
 
-    // Filter by likes
-    if (minLikes || maxLikes) {
-      findQuery.likes = {};
-      if (minLikes) findQuery.likes.$gte = parseInt(minLikes);
-      if (maxLikes) findQuery.likes.$lte = parseInt(maxLikes);
+    // Now handle the toggle
+    if (existingLike || isLikedInArray) {
+      // Unlike - remove from both places atomically
+      await Like.deleteOne({
+        userInternalId: req.internalId,
+        storyId
+      });
+
+      const result = await Story.findByIdAndUpdate(
+        storyId,
+        {
+          $pull: { likedBy: req.internalId },
+          $inc: { likes: -1 }
+        },
+        { new: true }
+      );
+
+      return res.json({
+        success: true,
+        liked: false,
+        likes: Math.max(0, result?.likes || 0)
+      });
     }
 
-    // Filter by word count
-    if (minWords || maxWords) {
-      findQuery.wordCount = {};
-      if (minWords) findQuery.wordCount.$gte = parseInt(minWords);
-      if (maxWords) findQuery.wordCount.$lte = parseInt(maxWords);
+    // Like - add to both places atomically
+    try {
+      await Like.create({
+        userInternalId: req.internalId,
+        storyId
+      });
+    } catch (err) {
+      // Unique constraint violation - already liked
+      if (err.code === 11000) {
+        return res.json({
+          success: true,
+          liked: true,
+          likes: story.likes
+        });
+      }
+      throw err;
     }
 
-    // Filter by date range
-    if (dateFrom || dateTo) {
-      findQuery.createdAt = {};
-      if (dateFrom) findQuery.createdAt.$gte = new Date(dateFrom);
-      if (dateTo) findQuery.createdAt.$lte = new Date(dateTo);
+    const result = await Story.findByIdAndUpdate(
+      storyId,
+      {
+        $addToSet: { likedBy: req.internalId },
+        $inc: { likes: 1 }
+      },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      liked: true,
+      likes: result?.likes || 0
+    });
+  } catch (error) {
+    console.error('Like error:', error);
+    res.status(500).json({ success: false, error: 'Failed to like story' });
+  }
+});
+
+// PUT /stories/:storyId - Edit a story (within grace period)
+router.put('/:storyId', requireAuth, sanitizeStoryMiddleware, async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const { text, title } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Story text is required' });
     }
 
-    const stories = await Story.find(findQuery)
-      .sort({ createdAt: -1 })
+    if (text.trim().length < 10) {
+      return res.status(400).json({ success: false, error: 'Story must be at least 10 characters long' });
+    }
+
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+
+    // Check ownership
+    if (story.internalAuthorId !== req.internalId) {
+      return res.status(403).json({ success: false, error: 'You can only edit your own stories' });
+    }
+
+    // Check if story is locked by moderator
+    if (story.threadLocked) {
+      return res.status(403).json({ success: false, error: 'This story is locked by a moderator' });
+    }
+
+    // Check edit grace period (5 minutes after publish)
+    const GRACE_PERIOD = 5 * 60 * 1000; // 5 minutes
+    const now = new Date();
+    const publishTime = story.publishedAt || story.createdAt;
+    const timeSincePublish = now - publishTime;
+
+    if (timeSincePublish > GRACE_PERIOD) {
+      return res.status(403).json({
+        success: false,
+        error: 'Edit window closed. Stories can only be edited within 5 minutes of publishing.'
+      });
+    }
+
+    // Check max edits (3 edits allowed)
+    if (story.editCount >= 3) {
+      return res.status(403).json({ success: false, error: 'Maximum edits (3) reached' });
+    }
+
+    // Calculate new word count
+    const wordCount = text.trim().split(/\s+/).length;
+    if (wordCount > 20000) {
+      return res.status(400).json({ success: false, error: 'Story exceeds 20,000 word limit' });
+    }
+
+    // Update story
+    story.text = text;
+    story.title = title || text.substring(0, 100);
+    story.wordCount = wordCount;
+    story.lastEditedAt = now;
+    story.editCount = (story.editCount || 0) + 1;
+
+    await story.save();
+    logAuthEvent('STORY_EDITED', req.internalId, true, { storyId: story._id, editCount: story.editCount });
+
+    res.json({
+      success: true,
+      message: 'Story updated successfully',
+      story: {
+        _id: story._id,
+        title: story.title,
+        text: story.text,
+        wordCount: story.wordCount,
+        editCount: story.editCount,
+        lastEditedAt: story.lastEditedAt
+      }
+    });
+  } catch (error) {
+    console.error('Story edit error:', error);
+    res.status(500).json({ success: false, error: 'Failed to edit story' });
+  }
+});
+
+// DELETE /stories/:storyId - Delete a story (only within grace period)
+router.delete('/:storyId', requireAuth, async (req, res) => {
+  try {
+    const { storyId } = req.params;
+
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+
+    // Check ownership
+    if (story.internalAuthorId !== req.internalId) {
+      return res.status(403).json({ success: false, error: 'You can only delete your own stories' });
+    }
+
+    // Check if story is locked by moderator
+    if (story.threadLocked) {
+      return res.status(403).json({ success: false, error: 'This story is locked by a moderator' });
+    }
+
+    // Check delete grace period (30 minutes after publish)
+    const DELETE_GRACE_PERIOD = 30 * 60 * 1000; // 30 minutes
+    const now = new Date();
+    const publishTime = story.publishedAt || story.createdAt;
+    const timeSincePublish = now - publishTime;
+
+    if (timeSincePublish > DELETE_GRACE_PERIOD) {
+      return res.status(403).json({
+        success: false,
+        error: 'Delete window closed. Stories can only be deleted within 30 minutes of publishing.'
+      });
+    }
+
+    // Delete the story
+    await Story.findByIdAndDelete(storyId);
+
+    // Delete associated likes
+    await Like.deleteMany({ storyId });
+
+    logAuthEvent('STORY_DELETED', req.internalId, true, { storyId });
+
+    res.json({
+      success: true,
+      message: 'Story deleted successfully'
+    });
+  } catch (error) {
+    console.error('Story delete error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete story' });
+  }
+});
+
+// GET /stories/leaderboard - Fetch leaderboard
+router.get('/leaderboard', optionalAuth, async (req, res) => {
+  try {
+    const period = req.query.period || '24h';
+    let dateFilter = new Date();
+
+    if (period === '7d') dateFilter.setDate(dateFilter.getDate() - 7);
+    else if (period === '30d') dateFilter.setDate(dateFilter.getDate() - 30);
+    else dateFilter.setHours(dateFilter.getHours() - 24);
+
+    const stories = await Story.find({
+      hidden: false,
+      createdAt: { $gte: dateFilter }
+    })
+      .sort({ likes: -1 })
+      .limit(10)
+      .lean();
+
+    const enriched = await Promise.all(stories.map(async (s) => {
+      const author = await User.findOne({ internalId: s.internalAuthorId });
+      return {
+        _id: s._id,
+        title: s.title,
+        likes: s.likes,
+        author: author?.username,
+        createdAt: s.createdAt
+      };
+    }));
+
+    res.json({ success: true, stories: enriched });
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /stories/search - Search stories
+router.get('/search', optionalAuth, async (req, res) => {
+  try {
+    const { q, page = 1, limit = 10 } = req.query;
+    if (!q) {
+      return res.status(400).json({ success: false, error: 'Search query required' });
+    }
+
+    const { skip } = getPaginationParams({ page, limit });
+
+    const total = await Story.countDocuments({
+      hidden: false,
+      $text: { $search: q }
+    });
+
+    const stories = await Story.find({
+      hidden: false,
+      $text: { $search: q }
+    })
+      .sort({ score: { $meta: 'textScore' } })
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
 
-    // Enrich with author usernames
-    const enrichedStories = await Promise.all(stories.map(async (story) => {
-      const author = await User.findOne({ internalId: story.internalAuthorId });
+    const enriched = await Promise.all(stories.map(async (s) => {
+      const author = await User.findOne({ internalId: s.internalAuthorId });
       return {
-        ...story,
+        _id: s._id,
+        title: s.title,
+        text: s.text.substring(0, 150) + '...',
+        preview: s.text.substring(0, 150) + '...',
         authorUsername: author?.username || 'Anonymous',
-        preview: story.text.substring(0, 200) + (story.text.length > 200 ? '...' : ''),
-        isLikedByUser: (story.likedBy || []).includes(req.internalId),
-        likes: story.likes || 0,
-        likedBy: story.likedBy || []
+        authorDisplayName: author?.displayName || 'Anonymous',
+        authorProfilePicture: author?.profilePicture?.url,
+        likes: s.likes,
+        createdAt: s.createdAt,
+        isLikedByUser: req.internalId ? s.likedBy?.includes(req.internalId) : false
       };
     }));
 
-    const totalStories = await Story.countDocuments(findQuery);
-
     res.json({
-      stories: enrichedStories,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: totalStories,
-        pages: Math.ceil(totalStories / parseInt(limit)),
-        hasNext: skip + parseInt(limit) < totalStories,
-        hasPrev: parseInt(page) > 1
-      },
-      query: q || ''
+      success: true,
+      stories: enriched,
+      pagination: getPaginationMeta(total, parseInt(page), parseInt(limit))
     });
   } catch (error) {
     console.error('Search error:', error);
-    res.status(500).json({ error: 'Failed to search stories' });
+    res.status(500).json({ success: false, error: 'Failed to search stories' });
   }
 });
 
-// GET /stories/leaderboard: Get top users by likes in different time periods
-router.get('/leaderboard', async (req, res) => {
+// GET /stories/archive - Fetch archived stories
+router.get('/archive', requireAuth, async (req, res) => {
   try {
-    const period = req.query.period || '24h'; // 24h, 3d, 1w
+    const { page, limit, skip } = getPaginationParams(req.query);
 
-    let timeFilter = {};
-    const now = new Date();
+    const total = await Story.countDocuments({
+      internalAuthorId: req.internalId,
+      hidden: true
+    });
 
-    switch (period) {
-      case '24h':
-        timeFilter = { createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } };
-        break;
-      case '3d':
-        timeFilter = { createdAt: { $gte: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) } };
-        break;
-      case '1w':
-        timeFilter = { createdAt: { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) } };
-        break;
-      default:
-        timeFilter = { createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } };
-    }
-
-    // Aggregate likes by author in the time period
-    const leaderboard = await Story.aggregate([
-      { $match: timeFilter },
-      {
-        $group: {
-          _id: '$internalAuthorId',
-          totalLikes: { $sum: '$likes' },
-          storyCount: { $sum: 1 }
-        }
-      },
-      { $sort: { totalLikes: -1 } },
-      { $limit: 10 }
-    ]);
-
-    // Get usernames for the top users (only include users with usernames)
-    const User = require('../models/User');
-    const enrichedLeaderboard = [];
-
-    for (const entry of leaderboard) {
-      const user = await User.findOne({ internalId: entry._id });
-      if (user && user.username) {
-        enrichedLeaderboard.push({
-          username: user.username,
-          internalId: entry._id,
-          totalLikes: entry.totalLikes,
-          storyCount: entry.storyCount
-        });
-      }
-    }
+    const stories = await Story.find({
+      internalAuthorId: req.internalId,
+      hidden: true
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.json({
-      period,
-      leaderboard: enrichedLeaderboard
+      success: true,
+      stories: stories.map(s => ({
+        _id: s._id,
+        title: s.title,
+        hiddenReason: s.hiddenReason,
+        createdAt: s.createdAt
+      })),
+      pagination: getPaginationMeta(total, page, limit)
     });
   } catch (error) {
-    console.error('Leaderboard error:', error);
-    res.status(500).json({ error: 'Failed to fetch leaderboard' });
-  }
-});
-
-// GET /stories/:id: Get single story by ID (MUST be last to avoid catching other routes)
-router.get('/:id', requireSession, async (req, res) => {
-  try {
-    const story = await Story.findById(req.params.id);
-
-    if (!story) {
-      return res.status(404).json({ error: 'Story not found' });
-    }
-
-    if (story.hidden) {
-      return res.status(404).json({ error: 'Story not found' });
-    }
-
-    // Get author username
-    const User = require('../models/User');
-    const author = await User.findOne({ internalId: story.internalAuthorId });
-
-    res.json({
-      ...story.toObject(),
-      authorUsername: author?.username || 'Anonymous',
-      isLikedByUser: (story.likedBy || []).includes(req.internalId),
-      likes: story.likes || 0
-    });
-  } catch (error) {
-    console.error('Get story error:', error);
-    res.status(500).json({ error: 'Failed to fetch story' });
+    console.error('Archive fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch archive' });
   }
 });
 
 module.exports = router;
-

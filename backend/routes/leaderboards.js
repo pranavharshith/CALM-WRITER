@@ -1,64 +1,198 @@
 const express = require('express');
 const router = express.Router();
 const Story = require('../models/Story');
+const Reaction = require('../models/Reaction');
 const User = require('../models/User');
+const { optionalAuth } = require('../middleware/auth-consolidated');
 
-// GET /leaderboards/top-stories: Get top stories by likes in different time periods
-router.get('/top-stories', async (req, res) => {
+// GET /leaderboards/top-stories - Top stories leaderboard
+router.get('/top-stories', optionalAuth, async (req, res) => {
   try {
-    const period = req.query.period || '24h'; // 24h, 3d, 1w, all-time
+    const period = req.query.period || '24h';
+    let dateFilter = new Date();
 
-    let timeFilter = { hidden: false };
-    const now = new Date();
+    // Map period values to days
+    if (period === '3d') dateFilter.setDate(dateFilter.getDate() - 3);
+    else if (period === '1w' || period === '7d') dateFilter.setDate(dateFilter.getDate() - 7);
+    else if (period === '30d') dateFilter.setDate(dateFilter.getDate() - 30);
+    else if (period === 'all-time') dateFilter = new Date(0); // Beginning of time
+    else dateFilter.setHours(dateFilter.getHours() - 24); // Default to 24h
 
-    switch (period) {
-      case '24h':
-        timeFilter.createdAt = { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) };
-        break;
-      case '3d':
-        timeFilter.createdAt = { $gte: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) };
-        break;
-      case '1w':
-        timeFilter.createdAt = { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) };
-        break;
-      case 'all-time':
-        // No time filter, just hidden: false
-        break;
-      default:
-        timeFilter.createdAt = { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) };
-    }
-
-    // Get top stories by likes
-    const topStories = await Story.find(timeFilter)
-      .sort({ likes: -1 })
-      .limit(10)
-      .lean();
-
-    // Get usernames for the authors
-    const enrichedLeaderboard = [];
-
-    for (const story of topStories) {
-      const user = await User.findOne({ internalId: story.internalAuthorId });
-      if (user && user.username) {
-        enrichedLeaderboard.push({
-          storyId: story._id,
-          storyTitle: story.title || 'Untitled',
-          username: user.username,
-          internalId: story.internalAuthorId,
-          likes: story.likes || 0,
-          wordCount: story.wordCount || 0,
-          createdAt: story.createdAt
-        });
+    // Use aggregation to avoid N+1 query
+    const stories = await Story.aggregate([
+      {
+        $match: {
+          hidden: false,
+          createdAt: { $gte: dateFilter }
+        }
+      },
+      { $sort: { likes: -1 } },
+      { $limit: 20 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'internalAuthorId',
+          foreignField: 'internalId',
+          as: 'author'
+        }
+      },
+      {
+        $project: {
+          storyId: '$_id',
+          storyTitle: '$title',
+          likes: { $max: [0, '$likes'] },
+          wordCount: 1,
+          createdAt: 1,
+          username: { $arrayElemAt: ['$author.username', 0] }
+        }
       }
-    }
+    ]);
 
-    res.json({
-      period,
-      leaderboard: enrichedLeaderboard
-    });
+    res.json({ success: true, stories, period });
   } catch (error) {
     console.error('Top stories leaderboard error:', error);
-    res.status(500).json({ error: 'Failed to fetch top stories' });
+    res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /leaderboards/most-felt - Most felt stories
+router.get('/most-felt', optionalAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+
+    // Use aggregation to avoid N+1 query
+    const stories = await Reaction.aggregate([
+      { $match: { type: { $in: ['stayed_with_me', 'felt_seen', 'learned_something'] } } },
+      { $group: { _id: '$storyId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'stories',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'story'
+        }
+      },
+      { $unwind: '$story' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'story.internalAuthorId',
+          foreignField: 'internalId',
+          as: 'author'
+        }
+      },
+      {
+        $project: {
+          _id: '$story._id',
+          title: '$story.title',
+          preview: { $substr: ['$story.text', 0, 150] },
+          authorUsername: { $arrayElemAt: ['$author.username', 0] },
+          reactions: '$count',
+          completionRate: 100,
+          createdAt: '$story.createdAt'
+        }
+      }
+    ]);
+
+    res.json({ success: true, stories, description: 'Stories that moved people deeply' });
+  } catch (error) {
+    console.error('Most felt leaderboard error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /leaderboards/quietly-powerful - Quietly powerful stories
+router.get('/quietly-powerful', optionalAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+
+    // Use aggregation to avoid N+1 query
+    const stories = await Story.aggregate([
+      { $match: { hidden: false } },
+      { $sort: { likes: 1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'reactions',
+          localField: '_id',
+          foreignField: 'storyId',
+          as: 'reactions'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'internalAuthorId',
+          foreignField: 'internalId',
+          as: 'author'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          preview: { $substr: ['$text', 0, 150] },
+          authorUsername: { $arrayElemAt: ['$author.username', 0] },
+          likes: { $max: [0, '$likes'] },
+          reactions: { $size: '$reactions' },
+          reads: { $max: [0, '$likes'] },
+          continuations: 0,
+          responses: { $size: '$reactions' },
+          createdAt: 1
+        }
+      }
+    ]);
+
+    res.json({ success: true, stories, description: 'Stories with quiet depth and meaning' });
+  } catch (error) {
+    console.error('Quietly powerful leaderboard error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// GET /leaderboards/growing-stories - Growing stories
+router.get('/growing-stories', optionalAuth, async (req, res) => {
+  try {
+    const days = Math.min(parseInt(req.query.days) || 7, 30);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+
+    const dateFilter = new Date();
+    dateFilter.setDate(dateFilter.getDate() - days);
+
+    const stories = await Story.find({
+      hidden: false,
+      createdAt: { $gte: dateFilter }
+    })
+      .sort({ likes: -1 })
+      .limit(limit)
+      .lean();
+
+    const enriched = await Promise.all(stories.map(async (s) => {
+      const author = await User.findOne({ internalId: s.internalAuthorId });
+      const daysSinceCreation = Math.ceil((new Date() - s.createdAt) / (1000 * 60 * 60 * 24));
+      const likesPerDay = daysSinceCreation > 0 ? (s.likes / daysSinceCreation).toFixed(2) : s.likes;
+
+      return {
+        _id: s._id,
+        title: s.title,
+        preview: s.text.substring(0, 150),
+        authorUsername: author?.username,
+        likes: s.likes,
+        likesPerDay,
+        daysSinceCreation,
+        daysActive: daysSinceCreation,
+        continuations: 0,
+        responses: 0,
+        createdAt: s.createdAt
+      };
+    }));
+
+    res.json({ success: true, stories: enriched, period: `${days}d`, description: 'Stories gaining momentum' });
+  } catch (error) {
+    console.error('Growing stories leaderboard error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
   }
 });
 

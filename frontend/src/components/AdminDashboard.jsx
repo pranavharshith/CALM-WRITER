@@ -42,9 +42,99 @@ export default function AdminDashboard({ user, onBack }) {
     if (loading) {
         return (
             <div style={styles.container}>
-                <div style={styles.loadingContainer}>
-                    <div style={styles.loadingSpinner}></div>
-                    <div style={styles.loadingText}>Loading Analytics Dashboard...</div>
+                {/* Top nav skeleton */}
+                <div style={styles.topNav}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div className="skeleton-shimmer" style={{ width: 130, height: 18, borderRadius: 4 }} />
+                        <div className="skeleton-shimmer" style={{ width: 1, height: 20, borderRadius: 0 }} />
+                        <div className="skeleton-shimmer" style={{ width: 100, height: 14, borderRadius: 4 }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div className="skeleton-shimmer" style={{ width: 110, height: 30, borderRadius: 4 }} />
+                        <div className="skeleton-shimmer" style={{ width: 100, height: 30, borderRadius: 4 }} />
+                    </div>
+                </div>
+
+                {/* Main layout */}
+                <div style={styles.mainLayout}>
+                    {/* Sidebar skeleton */}
+                    <div style={styles.sidebar}>
+                        <div style={{ padding: '0 20px', marginBottom: 24 }}>
+                            <div className="skeleton-shimmer" style={{ width: 70, height: 10, borderRadius: 3, marginBottom: 12 }} />
+                            {[100, 90, 110, 95, 105].map((w, i) => (
+                                <div key={i} className="skeleton-shimmer" style={{ width: `${w}%`, height: 36, borderRadius: 4, marginBottom: 4 }} />
+                            ))}
+                        </div>
+                        <div style={{ padding: '0 20px' }}>
+                            <div className="skeleton-shimmer" style={{ width: 70, height: 10, borderRadius: 3, marginBottom: 12 }} />
+                            {[100, 90].map((w, i) => (
+                                <div key={i} className="skeleton-shimmer" style={{ width: `${w}%`, height: 36, borderRadius: 4, marginBottom: 4 }} />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Content area skeleton */}
+                    <div style={{ ...styles.contentArea }}>
+                        <div style={styles.pageContainer}>
+                            {/* Page title */}
+                            <div className="skeleton-shimmer" style={{ width: 200, height: 28, borderRadius: 4, marginBottom: 32 }} />
+
+                            {/* KPI cards row — 4 cards */}
+                            <div style={styles.kpiRow}>
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} style={{ ...styles.largeKPI, borderTopColor: '#e0e0e0' }}>
+                                        <div className="skeleton-shimmer" style={{ width: '60%', height: 12, borderRadius: 3, marginBottom: 14 }} />
+                                        <div className="skeleton-shimmer" style={{ width: '45%', height: 34, borderRadius: 4, marginBottom: 10 }} />
+                                        <div className="skeleton-shimmer" style={{ width: '40%', height: 11, borderRadius: 3 }} />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Metric cards row — 6 smaller cards */}
+                            <div style={styles.metricsGrid}>
+                                {[1, 2, 3, 4, 5, 6].map(i => (
+                                    <div key={i} style={styles.metricCard}>
+                                        <div className="skeleton-shimmer" style={{ width: '70%', height: 11, borderRadius: 3, margin: '0 auto 10px' }} />
+                                        <div className="skeleton-shimmer" style={{ width: '50%', height: 26, borderRadius: 4, margin: '0 auto' }} />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Chart area — wide card + narrow activity feed */}
+                            <div style={styles.chartsRow}>
+                                <div style={{ ...styles.chartCard, flex: '7 1 0' }}>
+                                    <div className="skeleton-shimmer" style={{ width: 220, height: 16, borderRadius: 3, marginBottom: 24 }} />
+                                    <div className="skeleton-shimmer" style={{ width: '100%', height: 300, borderRadius: 6 }} />
+                                </div>
+                                <div style={{ ...styles.chartCard, flex: '3 1 0', minWidth: 200 }}>
+                                    <div className="skeleton-shimmer" style={{ width: 140, height: 16, borderRadius: 3, marginBottom: 20 }} />
+                                    {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                                        <div key={i} style={{ display: 'flex', gap: 10, paddingBottom: 14, borderBottom: '1px solid #f0f0f0', marginBottom: 14 }}>
+                                            <div className="skeleton-shimmer" style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 4, flexShrink: 0 }} />
+                                            <div style={{ flex: 1 }}>
+                                                <div className="skeleton-shimmer" style={{ width: '90%', height: 11, borderRadius: 3, marginBottom: 6 }} />
+                                                <div className="skeleton-shimmer" style={{ width: '45%', height: 10, borderRadius: 3 }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Quick stats grid */}
+                            <div style={styles.quickStatsSection}>
+                                <div className="skeleton-shimmer" style={{ width: 140, height: 18, borderRadius: 3, marginBottom: 16 }} />
+                                <div style={styles.quickStatsGrid}>
+                                    {[1, 2, 3, 4, 5, 6].map(i => (
+                                        <div key={i} style={styles.quickStat}>
+                                            <div className="skeleton-shimmer" style={{ width: '50%', height: 28, borderRadius: 4, margin: '0 auto 10px' }} />
+                                            <div className="skeleton-shimmer" style={{ width: '65%', height: 12, borderRadius: 3, margin: '0 auto 6px' }} />
+                                            <div className="skeleton-shimmer" style={{ width: '80%', height: 10, borderRadius: 3, margin: '0 auto' }} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         );

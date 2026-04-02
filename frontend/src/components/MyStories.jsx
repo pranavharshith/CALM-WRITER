@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { fetchUserProfile } from '../api/api';
 import StoryCard from './StoryCard';
+import { SkeletonStoryList } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
 
 export default function MyStories({ user, onBack, onReadStory, onProfile }) {
   const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);
+  const loading = useMinLoadTime(rawLoading, 1000);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -15,7 +18,7 @@ export default function MyStories({ user, onBack, onReadStory, onProfile }) {
 
   const loadMyStories = async () => {
     try {
-      setLoading(true);
+      setRawLoading(true);
       setError('');
       const result = await fetchUserProfile(user.username);
       if (result && result.stories) {
@@ -27,7 +30,7 @@ export default function MyStories({ user, onBack, onReadStory, onProfile }) {
       setError('An error occurred while fetching your stories.');
       console.error('Failed to load stories:', err);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
@@ -42,10 +45,14 @@ export default function MyStories({ user, onBack, onReadStory, onProfile }) {
     );
   };
 
+  if (loading) {
+    return <SkeletonStoryList count={3} />;
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button 
+        <button
           onClick={onBack}
           style={{
             background: 'transparent',
@@ -60,9 +67,7 @@ export default function MyStories({ user, onBack, onReadStory, onProfile }) {
 
         <h1 style={{ fontSize: '2em', marginBottom: '30px', color: '#333' }}>My Stories</h1>
 
-        {loading ? (
-          <div style={{ opacity: 0.6 }}>Loading stories...</div>
-        ) : error ? (
+        {error ? (
           <div style={{ color: '#d44' }}>{error}</div>
         ) : stories.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', opacity: 0.5, fontSize: '1.1em' }}>

@@ -14,13 +14,13 @@ export default function FeaturedBanner({ story, onRead }) {
         position: 'relative',
         overflow: 'hidden'
       }}>
-      
+
       {/* Featured Badge */}
       <div style={{
         position: 'absolute',
         top: '16px',
         right: '16px',
-        background: '#28a745',
+        background: '#7d9d74',
         color: '#fff',
         padding: '4px 12px',
         borderRadius: '12px',

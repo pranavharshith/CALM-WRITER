@@ -1,0 +1,39 @@
+# AI Digest Ignore File
+# This file tells AI assistants to NOT read or index the following files
+# Protects sensitive configuration and credentials from AI analysis
+
+# Environment files (CRITICAL - Contains secrets)
+**/.env
+**/.env.*
+.env
+.env.local
+.env.production
+.env.development
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Credentials and keys
+**/*credential*
+**/*secret*
+**/*password*
+**/*key*.pem
+**/*key*.key
+**/*.pfx
+**/*.p12
+
+# Database dumps and backups
+**/*.sql
+**/*.dump
+**/*.backup
+**/backups/
+
+# Log files (may contain sensitive data)
+**/*.log
+**/logs/
+
+# Private/sensitive directories
+**/private/
+**/confidential/
+**/secrets/

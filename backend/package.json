@@ -13,10 +13,31 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@upstash/redis": "^1.31.0",
+    "@vitalets/google-translate-api": "^9.2.1",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "mongoose": "^9.0.1"
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.2.1",
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
+    "isomorphic-dompurify": "^3.0.0-rc.2",
+    "jsonwebtoken": "^9.0.3",
+    "minio": "^8.0.6",
+    "mongoose": "^9.0.1",
+    "multer": "^2.0.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
+    "rate-limit-redis": "^4.2.0",
+    "redis": "^4.7.0",
+    "sharp": "^0.34.5",
+    "uuid": "^13.0.0",
+    "validator": "^13.15.26",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

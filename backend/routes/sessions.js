@@ -1,70 +1,72 @@
 const express = require('express');
 const router = express.Router();
-const ReadSession = require('../models/ReadSession');
+const { requireAuth } = require('../middleware/auth-consolidated');
+const TokenBlacklist = require('../models/TokenBlacklist');
+const jwt = require('jsonwebtoken');
+const { logAuthEvent } = require('../utils/logger');
 
-// Middleware: Check session by internalId
-function requireSession(req, res, next) {
-  const userId = req.header('X-Internal-Id');
-  if (!userId) return res.status(401).json({ error: 'Missing session' });
-  req.internalId = userId;
-  next();
-}
+// POST /auth/logout - Logout and blacklist token
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(400).json({ success: false, error: 'No token provided' });
+    }
 
-// POST /reads/track -- track reading progress
-router.post('/track', requireSession, async (req, res) => {
-  const { storyId, percentRead } = req.body;
-  if (!storyId || typeof percentRead !== 'number') {
-    return res.status(400).json({ error: 'Missing fields' });
-  }
-  
-  // Find or create read session
-  let session = await ReadSession.findOne({ 
-    userInternalId: req.internalId, 
-    storyId 
-  });
-  
-  if (!session) {
-    session = new ReadSession({ 
-      userInternalId: req.internalId, 
-      storyId,
-      startedAt: new Date()
+    const token = authHeader.substring(7);
+    
+    // Decode token to get expiration
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.exp) {
+      return res.status(400).json({ success: false, error: 'Invalid token' });
+    }
+
+    // Add token to blacklist
+    const expiresAt = new Date(decoded.exp * 1000);
+    await TokenBlacklist.create({
+      token,
+      userInternalId: req.internalId,
+      expiresAt
     });
+
+    logAuthEvent('LOGOUT_SUCCESS', req.internalId, true);
+
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ success: false, error: 'Failed to logout' });
   }
-  
-  session.percentRead = Math.max(session.percentRead || 0, percentRead);
-  if (percentRead >= 90 && !session.completedAt) {
-    session.completedAt = new Date();
-  }
-  
-  await session.save();
-  res.json({ success: true });
 });
 
-// POST /reads/start -- user starts reading a story
-router.post('/start', requireSession, async (req, res) => {
-  const { storyId } = req.body;
-  if (!storyId) return res.status(400).json({ error: 'Missing fields' });
-  const session = new ReadSession({ 
-    userInternalId: req.internalId, 
-    storyId,
-    startedAt: new Date()
-  });
-  await session.save();
-  res.json({ sessionId: session._id });
-});
+// GET /auth/verify - Verify token is valid and not blacklisted
+router.get('/verify', requireAuth, async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
 
-// POST /reads/complete -- user finishes a story
-router.post('/complete', async (req, res) => {
-  const { sessionId, percentRead, timeSpent } = req.body;
-  if (!sessionId || typeof percentRead !== 'number' || typeof timeSpent !== 'number') return res.status(400).json({ error: 'Missing fields'});
-  const session = await ReadSession.findById(sessionId);
-  if (!session) return res.status(404).json({ error: 'Not found' });
-  session.percentRead = percentRead;
-  session.timeSpent = timeSpent;
-  session.completedAt = new Date();
-  await session.save();
-  res.json({ success: true });
+    const token = authHeader.substring(7);
+
+    // Check if token is blacklisted
+    const blacklisted = await TokenBlacklist.findOne({ token });
+    if (blacklisted) {
+      return res.status(401).json({ success: false, error: 'Token has been revoked' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        internalId: req.internalId,
+        username: req.user.username,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Verify error:', error);
+    res.status(500).json({ success: false, error: 'Failed to verify token' });
+  }
 });
 
 module.exports = router;
-

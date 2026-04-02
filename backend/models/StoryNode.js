@@ -5,10 +5,10 @@ const StoryNodeSchema = new mongoose.Schema({
   rootStoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story', required: true }, // always points to original
   authorInternalId: { type: String, required: true },
   content: { type: String, required: true },
-  type: { 
-    type: String, 
-    enum: ['ORIGINAL', 'CONTINUATION', 'RESPONSE'], 
-    required: true 
+  type: {
+    type: String,
+    enum: ['ORIGINAL', 'CONTINUATION', 'RESPONSE'],
+    required: true
   },
   locked: { type: Boolean, default: true }, // cannot edit after submission
   createdAt: { type: Date, default: Date.now },
@@ -18,6 +18,9 @@ const StoryNodeSchema = new mongoose.Schema({
   // Moderation
   hidden: { type: Boolean, default: false }, // Moderator can hide response
   hiddenReason: { type: String },
+
+  // Collaborative Hubs
+  hubId: { type: String, default: null } // null for regular threads
 }, {
   timestamps: true
 });

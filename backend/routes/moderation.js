@@ -7,35 +7,22 @@ const ModAction = require('../models/ModAction');
 const User = require('../models/User');
 const ModeratorChat = require('../models/ModeratorChat');
 const TimeoutAppeal = require('../models/TimeoutAppeal');
+const { requireAuth } = require('../middleware/auth-consolidated');
+const { requireModerator, requireAdmin } = require('../middleware/adminAuth');
+const { sanitizeMessageMiddleware } = require('../middleware/inputSanitization');
+const rateLimit = require('express-rate-limit');
+const { ipKey } = require('express-rate-limit');
 
-// Middleware: Check if user is moderator or admin
-async function requireModerator(req, res, next) {
-  const userId = req.header('X-Internal-Id');
-  if (!userId) return res.status(401).json({ error: 'Missing session' });
-
-  const user = await User.findOne({ internalId: userId });
-  if (!user || !['moderator', 'admin'].includes(user.role)) {
-    return res.status(403).json({ error: 'Moderator access required' });
-  }
-
-  req.internalId = userId;
-  req.userRole = user.role;
-  next();
-}
-
-// Admin-only middleware
-async function requireAdmin(req, res, next) {
-  const userId = req.header('X-Internal-Id');
-  if (!userId) return res.status(401).json({ error: 'Missing session' });
-
-  const user = await User.findOne({ internalId: userId });
-  if (!user || user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-
-  req.internalId = userId;
-  next();
-}
+// Rate limiter for moderation actions - 100 actions per hour per moderator
+const moderationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 100,
+  message: { success: false, error: 'Too many moderation actions. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.internalId || ipKey(req),
+  skip: (req) => !req.internalId // Skip if not authenticated
+});
 
 // GET /moderation/reports - Get pending reports
 router.get('/reports', requireModerator, async (req, res) => {
@@ -93,7 +80,7 @@ router.get('/reports', requireModerator, async (req, res) => {
 });
 
 // POST /moderation/remove-story - Remove story (after report)
-router.post('/remove-story', requireModerator, async (req, res) => {
+router.post('/remove-story', requireModerator, moderationLimiter, async (req, res) => {
   try {
     const { storyId, reason, reportId } = req.body;
 
@@ -111,7 +98,17 @@ router.post('/remove-story', requireModerator, async (req, res) => {
     story.hiddenReason = reason;
     await story.save();
 
-    // Log moderation action
+    // Log moderation action with security event
+    const { logSecurityEvent } = require('../utils/logger');
+    logSecurityEvent('STORY_REMOVED_BY_MODERATOR', {
+      moderatorId: req.internalId,
+      storyId,
+      reason,
+      reportId,
+      authorId: story.internalAuthorId,
+      timestamp: new Date()
+    });
+
     const modAction = new ModAction({
       moderatorInternalId: req.internalId,
       actionType: 'remove_story',
@@ -138,7 +135,7 @@ router.post('/remove-story', requireModerator, async (req, res) => {
 });
 
 // POST /moderation/remove-node - Remove story node (continuation/response)
-router.post('/remove-node', requireModerator, async (req, res) => {
+router.post('/remove-node', requireModerator, moderationLimiter, async (req, res) => {
   try {
     const { nodeId, reason, reportId } = req.body;
 
@@ -322,7 +319,7 @@ router.get('/pinned-comments/:storyId', async (req, res) => {
 });
 
 // POST /moderation/timeout-user - Issue timeout to a user
-router.post('/timeout-user', requireModerator, async (req, res) => {
+router.post('/timeout-user', requireModerator, moderationLimiter, async (req, res) => {
   try {
     const { userInternalId, duration, reason } = req.body;
 
@@ -344,6 +341,17 @@ router.post('/timeout-user', requireModerator, async (req, res) => {
     }
 
     const timeoutUntil = new Date(Date.now() + timeoutMs);
+
+    // Log moderation action with security event
+    const { logSecurityEvent } = require('../utils/logger');
+    logSecurityEvent('USER_TIMEOUT_ISSUED', {
+      moderatorId: req.internalId,
+      userId: userInternalId,
+      duration,
+      reason,
+      timeoutUntil,
+      timestamp: new Date()
+    });
 
     // Update user
     await User.findOneAndUpdate(
@@ -392,8 +400,21 @@ router.post('/issue-warning', requireModerator, async (req, res) => {
 // GET /moderation/chat - Get moderator chat messages
 router.get('/chat', requireModerator, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
-    const before = req.query.before ? new Date(req.query.before) : new Date();
+    let limit = parseInt(req.query.limit) || 50;
+    // Validate limit is between 1-100
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      limit = 50;
+    }
+
+    let before = new Date();
+    if (req.query.before) {
+      const beforeDate = new Date(req.query.before);
+      // Validate date format
+      if (isNaN(beforeDate.getTime())) {
+        return res.status(400).json({ success: false, error: 'Invalid date format for before parameter' });
+      }
+      before = beforeDate;
+    }
 
     const messages = await ModeratorChat.find({
       deletedAt: null,
@@ -410,7 +431,7 @@ router.get('/chat', requireModerator, async (req, res) => {
 });
 
 // POST /moderation/chat - Post message to moderator chat
-router.post('/chat', requireModerator, async (req, res) => {
+router.post('/chat', requireModerator, sanitizeMessageMiddleware, async (req, res) => {
   try {
     const { message } = req.body;
 
@@ -453,14 +474,10 @@ router.post('/chat', requireModerator, async (req, res) => {
 });
 
 // POST /moderation/submit-appeal - User submits timeout appeal
-router.post('/submit-appeal', async (req, res) => {
+router.post('/submit-appeal', requireAuth, async (req, res) => {
   try {
     const { answers } = req.body;
-    const userInternalId = req.header('X-Internal-Id');
-
-    if (!userInternalId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userInternalId = req.internalId;
 
     // Check if user is actually timed out
     const user = await User.findOne({ internalId: userInternalId });
@@ -530,7 +547,7 @@ router.get('/appeals', requireModerator, async (req, res) => {
   }
 });
 
-// POST /moderation/review-appeal - Moderator reviews appeal
+// POST /moderation/review-appeal - Moderator reviews appeal (requires admin approval for major decisions)
 router.post('/review-appeal', requireModerator, async (req, res) => {
   try {
     const { appealId, decision, notes, newDuration } = req.body;
@@ -558,6 +575,15 @@ router.post('/review-appeal', requireModerator, async (req, res) => {
       return res.status(403).json({
         error: 'You are not assigned to review this appeal.',
         conflictDetected: true
+      });
+    }
+
+    // CRITICAL FIX #2: Require admin approval for timeout cancellation
+    const reviewer = await User.findOne({ internalId: req.internalId });
+    if (decision === 'timeout_cancelled' && reviewer.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Only admins can cancel timeouts. This decision requires admin approval.',
+        requiresAdminApproval: true
       });
     }
 
@@ -603,7 +629,7 @@ router.post('/review-appeal', requireModerator, async (req, res) => {
 });
 
 // POST /moderation/revoke-timeout - Admin revokes timeout
-router.post('/revoke-timeout', requireAdmin, async (req, res) => {
+router.post('/revoke-timeout', requireAdmin, moderationLimiter, async (req, res) => {
   try {
     const { userInternalId, reason } = req.body;
 

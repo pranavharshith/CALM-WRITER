@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { fetchThread, continueStory, respondToStory, fetchPinnedComments, reportContent } from '../api/api';
+import { SkeletonThreadView } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
 
 export default function ThreadView({ storyId, user, onBack }) {
   const [thread, setThread] = useState(null);
   const [pinnedComments, setPinnedComments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);
+  const loading = useMinLoadTime(rawLoading, 1000);
   const [showContinueForm, setShowContinueForm] = useState(false);
   const [showResponseForm, setShowResponseForm] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
@@ -24,14 +27,14 @@ export default function ThreadView({ storyId, user, onBack }) {
 
   const loadThread = async () => {
     try {
-      setLoading(true);
+      setRawLoading(true);
       const data = await fetchThread(storyId);
       setThread(data);
     } catch (err) {
       setError('Failed to load thread');
       console.error(err);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
@@ -46,7 +49,7 @@ export default function ThreadView({ storyId, user, onBack }) {
 
   const handleContinue = async () => {
     if (!continueContent.trim()) return;
-    
+
     setSubmitting(true);
     setError('');
     try {
@@ -68,7 +71,7 @@ export default function ThreadView({ storyId, user, onBack }) {
 
   const handleRespond = async () => {
     if (!responseContent.trim()) return;
-    
+
     setSubmitting(true);
     setError('');
     try {
@@ -90,7 +93,7 @@ export default function ThreadView({ storyId, user, onBack }) {
 
   const handleReport = async () => {
     if (!reportTarget) return;
-    
+
     setSubmitting(true);
     try {
       await reportContent(
@@ -117,11 +120,7 @@ export default function ThreadView({ storyId, user, onBack }) {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', background: '#fefefd', minHeight: '100vh' }}>
-        <p style={{ color: '#666' }}>Loading thread...</p>
-      </div>
-    );
+    return <SkeletonThreadView />;
   }
 
   if (!thread) {
@@ -141,7 +140,7 @@ export default function ThreadView({ storyId, user, onBack }) {
   return (
     <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
       <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-        <button 
+        <button
           onClick={onBack}
           style={{
             background: 'transparent',
@@ -209,7 +208,7 @@ export default function ThreadView({ storyId, user, onBack }) {
               )}
             </span>
           </div>
-          
+
           {thread.story.title && (
             <h2 style={{
               fontSize: '1.4em',
@@ -221,7 +220,7 @@ export default function ThreadView({ storyId, user, onBack }) {
               {thread.story.title}
             </h2>
           )}
-          
+
           <div style={{
             fontSize: '1.1em',
             lineHeight: '1.72',
@@ -275,7 +274,7 @@ export default function ThreadView({ storyId, user, onBack }) {
             }}>
               This story continues
             </div>
-            
+
             {thread.continuations.map((continuation, idx) => (
               <div key={continuation._id} style={{
                 background: '#fff',
@@ -390,7 +389,7 @@ export default function ThreadView({ storyId, user, onBack }) {
                 }}>
                 Cancel
               </button>
-              <span style={{ fontSize: '0.85em', color: wordCount(continueContent) > 800 ? '#e74c3c' : '#999' }}>
+              <span style={{ fontSize: '0.85em', color: wordCount(continueContent) > 800 ? '#c7968c' : '#999' }}>
                 {wordCount(continueContent)} / 800 words
               </span>
             </div>
@@ -414,7 +413,7 @@ export default function ThreadView({ storyId, user, onBack }) {
               }}>
               {showResponses ? '▼' : '▶'} Reflections from readers ({thread.responses.length})
             </button>
-            
+
             {showResponses && (
               <div>
                 {thread.responses.map((response) => (
@@ -536,7 +535,7 @@ export default function ThreadView({ storyId, user, onBack }) {
                 }}>
                 Cancel
               </button>
-              <span style={{ fontSize: '0.85em', color: wordCount(responseContent) > 800 ? '#e74c3c' : '#999' }}>
+              <span style={{ fontSize: '0.85em', color: wordCount(responseContent) > 800 ? '#c7968c' : '#999' }}>
                 {wordCount(responseContent)} / 800 words
               </span>
             </div>
@@ -565,7 +564,7 @@ export default function ThreadView({ storyId, user, onBack }) {
               width: '90%'
             }}>
               <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '1.2em' }}>Report Content</h3>
-              
+
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9em', color: '#666' }}>
                   Reason
@@ -613,7 +612,7 @@ export default function ThreadView({ storyId, user, onBack }) {
                   onClick={handleReport}
                   disabled={submitting}
                   style={{
-                    background: '#e74c3c',
+                    background: '#c7968c',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '6px',

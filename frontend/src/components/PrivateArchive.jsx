@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { fetchUserStories } from '../api/api';
+import { SkeletonStoryList } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
 
 export default function PrivateArchive({ onBack, user }) {
   const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);
+  const loading = useMinLoadTime(rawLoading, 1000);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -12,29 +15,19 @@ export default function PrivateArchive({ onBack, user }) {
 
   const loadStories = async () => {
     try {
-      setLoading(true);
+      setRawLoading(true);
       const userStories = await fetchUserStories();
       setStories(userStories);
     } catch (err) {
       setError('Failed to load your stories');
       console.error('Failed to fetch user stories:', err);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#fefefd'
-      }}>
-        <div style={{ opacity: 0.6 }}>Loading your stories...</div>
-      </div>
-    );
+    return <SkeletonStoryList count={3} />;
   }
 
   if (error) {
@@ -61,7 +54,7 @@ export default function PrivateArchive({ onBack, user }) {
       padding: '20px'
     }}>
       <div style={{ maxWidth: '620px', margin: '0 auto' }}>
-        <button 
+        <button
           onClick={onBack}
           style={{
             background: 'transparent',
@@ -99,8 +92,8 @@ export default function PrivateArchive({ onBack, user }) {
             gap: 30
           }}>
             {stories.map(story => (
-              <div 
-                key={story._id} 
+              <div
+                key={story._id}
                 style={{
                   background: '#faf9f8',
                   borderRadius: 8,

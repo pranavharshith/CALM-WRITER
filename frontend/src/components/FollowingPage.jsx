@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { getFollowingList } from '../api/api';
+import { SkeletonFollowRow } from './SkeletonLoader';
+import useMinLoadTime from '../hooks/useMinLoadTime';
 
 export default function FollowingPage({ username, onBack, onProfile }) {
   const [following, setFollowing] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rawLoading, setRawLoading] = useState(true);
+  const loading = useMinLoadTime(rawLoading, 1000);
   const [error, setError] = useState('');
 
-    useEffect(() => {
+  useEffect(() => {
     if (username) {
       loadFollowing();
     }
@@ -14,7 +17,7 @@ export default function FollowingPage({ username, onBack, onProfile }) {
 
   const loadFollowing = async () => {
     try {
-      setLoading(true);
+      setRawLoading(true);
       setError('');
       const result = await getFollowingList(username);
       if (Array.isArray(result)) {
@@ -26,14 +29,14 @@ export default function FollowingPage({ username, onBack, onProfile }) {
       setError('An error occurred while fetching the list.');
       console.error('Failed to load following list:', err);
     } finally {
-      setLoading(false);
+      setRawLoading(false);
     }
   };
 
   return (
     <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button 
+        <button
           onClick={onBack}
           style={{
             background: 'transparent',
@@ -49,7 +52,9 @@ export default function FollowingPage({ username, onBack, onProfile }) {
         <h1 style={{ fontSize: '2em', marginBottom: '30px', color: '#333' }}>Following @{username}</h1>
 
         {loading ? (
-          <div style={{ opacity: 0.6 }}>Loading...</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            {[1, 2, 3, 4, 5].map(i => <SkeletonFollowRow key={i} />)}
+          </div>
         ) : error ? (
           <div style={{ color: '#d44' }}>{error}</div>
         ) : following.length === 0 ? (
@@ -59,14 +64,14 @@ export default function FollowingPage({ username, onBack, onProfile }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             {following.map((user) => (
-              <div 
-                key={user.username} 
-                style={{ 
-                  padding: '20px', 
-                  background: '#fff', 
-                  border: '1px solid #ddd', 
-                  borderRadius: '8px', 
-                  cursor: 'pointer' 
+              <div
+                key={user.username}
+                style={{
+                  padding: '20px',
+                  background: '#fff',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
                 }}
                 onClick={() => onProfile(user.username)}
               >

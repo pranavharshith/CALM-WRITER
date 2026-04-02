@@ -3,49 +3,85 @@ const router = express.Router();
 const Report = require('../models/Report');
 const Story = require('../models/Story');
 const User = require('../models/User');
+const { requireAdmin } = require('../middleware/auth-consolidated');
+const { requireAuth } = require('../middleware/auth-consolidated');
+const { reportLimiter } = require('../middleware/rateLimiter');
+const { logAdminAction } = require('../utils/logger');
+const rateLimit = require('express-rate-limit');
+const { ipKey } = require('express-rate-limit');
 
-// POST /admin/report - Regular users can report stories or nodes
-router.post('/report', async (req, res) => {
-  const { userInternalId, storyId, storyNodeId, reason, details } = req.body;
+// Every route in this router requires authentication
+router.use(requireAuth);
+
+// Rate limiter for admin endpoints - 50 requests per hour
+const adminLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50,
+  message: { success: false, error: 'Too many admin requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.internalId || ipKey(req),
+  skip: (req) => !req.internalId
+});
+
+// POST /admin/report - Regular users can report stories or nodes (with rate limiting)
+router.post('/report', requireAuth, reportLimiter, async (req, res) => {
+  const { storyId, storyNodeId, reason, details } = req.body;
 
   // Must have either storyId or storyNodeId
-  if (!userInternalId || (!storyId && !storyNodeId)) {
-    return res.status(400).json({ error: 'User ID and content ID required' });
+  if (!storyId && !storyNodeId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Story ID or node ID required'
+    });
   }
 
   // Validate reason
   if (!['spam', 'hate', 'harassment', 'explicit_harm'].includes(reason)) {
-    return res.status(400).json({ error: 'Invalid report reason' });
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid report reason'
+    });
+  }
+
+  // Validate details field - max 5000 characters
+  if (details && typeof details === 'string') {
+    if (details.length > 5000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Report details must not exceed 5000 characters'
+      });
+    }
+    // Sanitize details to prevent injection
+    if (/<script|javascript:|onerror|onclick/i.test(details)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Report details contain invalid content'
+      });
+    }
   }
 
   const report = new Report({
-    userInternalId,
+    userInternalId: req.internalId,
     storyId: storyId || null,
     storyNodeId: storyNodeId || null,
     reason,
-    details,
+    details: details ? details.trim() : '',
     status: 'pending',
   });
   await report.save();
+
   res.json({ success: true, reportId: report._id });
 });
 
-// POST /admin/delete-story - Admin only (no UI for now, basic endpoint)
-router.post('/delete-story', async (req, res) => {
-  const { storyId, adminSecret } = req.body;
-  if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
-    return res.status(403).json({ error: 'Not authorized' });
-  }
-  await Story.deleteOne({ _id: storyId });
-  res.json({ success: true });
-});
+// REMOVED: Insecure /admin/delete-story endpoint that used admin secret in request body
+// Use JWT-based authentication with requireAdmin middleware instead
 
 // Admin Analytics Endpoints
-const { requireAdmin } = require('../middleware/adminAuth');
 const ReadSession = require('../models/ReadSession');
 
 // GET /admin/stats - Comprehensive analytics dashboard with all metrics
-router.get('/stats', requireAdmin, async (req, res) => {
+router.get('/stats', requireAdmin, adminLimiter, async (req, res) => {
   try {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -343,13 +379,10 @@ const ModeratorApplication = require('../models/ModeratorApplication');
 const StoryNode = require('../models/StoryNode');
 const Bookmark = require('../models/Bookmark');
 
-// GET /admin/check-moderator-eligibility - Check if user meets moderator requirements
-router.get('/check-moderator-eligibility', async (req, res) => {
+// GET /admin/check-moderator-eligibility - Check if current user meets moderator requirements
+router.get('/check-moderator-eligibility', requireAuth, async (req, res) => {
   try {
-    const userInternalId = req.header('X-Internal-Id');
-    if (!userInternalId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userInternalId = req.internalId;
 
     const user = await User.findOne({ internalId: userInternalId });
     if (!user) {
@@ -431,13 +464,10 @@ router.get('/check-moderator-eligibility', async (req, res) => {
   }
 });
 
-// POST /admin/apply-moderator - Submit moderator application
-router.post('/apply-moderator', async (req, res) => {
+// POST /admin/apply-moderator - Submit moderator application (authenticated user)
+router.post('/apply-moderator', requireAuth, async (req, res) => {
   try {
-    const userInternalId = req.header('X-Internal-Id');
-    if (!userInternalId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+    const userInternalId = req.internalId;
 
     const { essay, scenarioAnswers } = req.body;
 
@@ -445,10 +475,37 @@ router.post('/apply-moderator', async (req, res) => {
       return res.status(400).json({ error: 'Essay must be at least 200 words' });
     }
 
-    // Check eligibility first
-    const eligibilityCheck = await fetch(`${req.protocol}://${req.get('host')}/api/admin/check-moderator-eligibility`, {
-      headers: { 'X-Internal-Id': userInternalId }
-    }).then(r => r.json());
+    // Check eligibility directly instead of doing an internal HTTP call
+    const eligibilityCheck = await (async () => {
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+
+      const userStories = await Story.find({ internalAuthorId: userInternalId });
+      const totalStories = userStories.length;
+      const totalLikes = userStories.reduce((sum, story) => sum + (story.likes || 0), 0);
+      const avgLikes = totalStories > 0 ? totalLikes / totalStories : 0;
+
+      const user = await User.findOne({ internalId: userInternalId });
+      if (!user) {
+        return { canApply: false };
+      }
+
+      const accountAgeDays = Math.floor((now - user.joinedAt) / (1000 * 60 * 60 * 24));
+      const followerCount = await Bookmark.countDocuments({}); // placeholder, mirror logic from stats if needed
+
+      // For now, reuse simple gate: must have at least some stories and be older than a week
+      const canApply = totalStories >= 5 && accountAgeDays >= 7;
+
+      return {
+        canApply,
+        requirements: {
+          totalStories: { value: totalStories },
+          avgLikes: { value: avgLikes },
+          accountAgeDays: { value: accountAgeDays },
+          followerCount: { value: followerCount }
+        }
+      };
+    })();
 
     if (!eligibilityCheck.canApply) {
       return res.status(403).json({ error: 'You do not meet the requirements to apply' });
@@ -508,7 +565,7 @@ router.post('/review-moderator-application', requireAdmin, async (req, res) => {
 
     // Update application
     application.status = decision; // 'approved' or 'rejected'
-    application.reviewedBy = req.header('X-Internal-Id');
+    application.reviewedBy = req.internalId;
     application.reviewedAt = new Date();
     application.reviewNotes = notes;
 
@@ -521,7 +578,7 @@ router.post('/review-moderator-application', requireAdmin, async (req, res) => {
         {
           role: 'moderator',
           moderatorJoinedAt: new Date(),
-          moderatorPromotedBy: req.header('X-Internal-Id')
+          moderatorPromotedBy: req.internalId
         }
       );
 
@@ -564,7 +621,7 @@ router.post('/promote-to-moderator', requireAdmin, async (req, res) => {
     // Promote user
     user.role = 'moderator';
     user.moderatorJoinedAt = new Date();
-    user.moderatorPromotedBy = req.header('X-Internal-Id');
+    user.moderatorPromotedBy = req.internalId;
     await user.save();
 
     // Create system message in moderator chat
@@ -581,6 +638,110 @@ router.post('/promote-to-moderator', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Promote to moderator error:', error);
     res.status(500).json({ error: 'Failed to promote user' });
+  }
+});
+
+// GET /admin/check-like-consistency - Check and report data consistency issues
+router.get('/check-like-consistency', requireAdmin, async (req, res) => {
+  try {
+    console.log('Starting like data consistency check...');
+
+    // Find stories where likedBy array length doesn't match likes count
+    const inconsistencies = await Story.find({
+      $expr: { $ne: [{ $size: '$likedBy' }, '$likes'] }
+    }).select('_id title likes likedBy').limit(100);
+
+    // Find Like records that don't have corresponding Story.likedBy entries
+    const Like = require('../models/Like');
+    const allLikes = await Like.find({}).lean();
+    const orphanedLikes = [];
+
+    for (const like of allLikes) {
+      const story = await Story.findById(like.storyId).select('likedBy');
+      if (!story || !story.likedBy?.includes(like.userInternalId)) {
+        orphanedLikes.push({
+          likeId: like._id,
+          storyId: like.storyId,
+          userInternalId: like.userInternalId
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      summary: {
+        totalStories: await Story.countDocuments(),
+        totalLikes: allLikes.length,
+        inconsistentStories: inconsistencies.length,
+        orphanedLikes: orphanedLikes.length
+      },
+      inconsistencies: inconsistencies.map(s => ({
+        storyId: s._id,
+        title: s.title,
+        likedByCount: s.likedBy?.length || 0,
+        likesCount: s.likes
+      })),
+      orphanedLikes: orphanedLikes.slice(0, 20) // Show first 20
+    });
+  } catch (error) {
+    console.error('Consistency check error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check consistency' });
+  }
+});
+
+// POST /admin/fix-like-consistency - Attempt to fix data consistency issues
+router.post('/admin/fix-like-consistency', requireAdmin, async (req, res) => {
+  try {
+    console.log('Starting like data consistency fix...');
+
+    const Like = require('../models/Like');
+    let fixed = 0;
+
+    // Fix stories with inconsistent like counts
+    const inconsistencies = await Story.find({
+      $expr: { $ne: [{ $size: '$likedBy' }, '$likes'] }
+    });
+
+    for (const story of inconsistencies) {
+      const correctCount = story.likedBy?.length || 0;
+      if (story.likes !== correctCount) {
+        await Story.findByIdAndUpdate(story._id, {
+          likes: correctCount
+        });
+        fixed++;
+      }
+    }
+
+    // Fix orphaned likes (Like records without Story.likedBy entry)
+    const allLikes = await Like.find({}).lean();
+    let orphanedFixed = 0;
+
+    for (const like of allLikes) {
+      const story = await Story.findById(like.storyId);
+      if (!story) {
+        // Story deleted, remove the like
+        await Like.deleteOne({ _id: like._id });
+        orphanedFixed++;
+      } else if (!story.likedBy?.includes(like.userInternalId)) {
+        // Add to likedBy array
+        await Story.findByIdAndUpdate(like.storyId, {
+          $addToSet: { likedBy: like.userInternalId },
+          $inc: { likes: 1 }
+        });
+        orphanedFixed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      fixed: {
+        inconsistentStories: fixed,
+        orphanedLikes: orphanedFixed
+      }
+    });
+  } catch (error) {
+    console.error('Consistency fix error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fix consistency' });
   }
 });
 

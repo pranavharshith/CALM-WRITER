@@ -2,26 +2,8 @@ const express = require('express');
 const router = express.Router();
 const DailyPrompt = require('../models/DailyPrompt');
 const User = require('../models/User');
-
-function requireSession(req, res, next) {
-    const userId = req.header('X-Internal-Id');
-    if (!userId) return res.status(401).json({ error: 'Missing session' });
-    req.internalId = userId;
-    next();
-}
-
-async function requireAdmin(req, res, next) {
-    const userId = req.header('X-Internal-Id');
-    if (!userId) return res.status(401).json({ error: 'Missing session' });
-
-    const user = await User.findOne({ internalId: userId });
-    if (!user || user.role !== 'admin') {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    req.internalId = userId;
-    next();
-}
+const { requireAuth } = require('../middleware/auth-consolidated');
+const { requireAdmin } = require('../middleware/adminAuth');
 
 // GET /prompts/current - Get today's prompt
 router.get('/current', async (req, res) => {

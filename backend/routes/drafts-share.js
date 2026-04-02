@@ -2,16 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Draft = require('../models/Draft');
 const crypto = require('crypto');
-
-function requireSession(req, res, next) {
-    const userId = req.header('X-Internal-Id');
-    if (!userId) return res.status(401).json({ error: 'Missing session' });
-    req.internalId = userId;
-    next();
-}
+const { requireAuth } = require('../middleware/auth-consolidated');
 
 // POST /drafts/:id/share - Generate share link for draft
-router.post('/:id/share', requireSession, async (req, res) => {
+router.post('/:id/share', requireAuth, async (req, res) => {
     try {
         const draft = await Draft.findOne({
             _id: req.params.id,
@@ -85,7 +79,7 @@ router.get('/shared/:token', async (req, res) => {
 });
 
 // DELETE /drafts/:id/unshare - Revoke share link
-router.delete('/:id/unshare', requireSession, async (req, res) => {
+router.delete('/:id/unshare', requireAuth, async (req, res) => {
     try {
         const draft = await Draft.findOne({
             _id: req.params.id,

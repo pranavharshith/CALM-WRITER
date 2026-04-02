@@ -2,134 +2,190 @@ const express = require('express');
 const router = express.Router();
 const Follow = require('../models/Follow');
 const User = require('../models/User');
+const { requireAuth, optionalAuth } = require('../middleware/auth-consolidated');
+const { getPaginationParams, getPaginationMeta } = require('../utils/pagination');
 
-// Middleware: Check session by internalId
-function requireSession(req, res, next) {
-  const userId = req.header('X-Internal-Id');
-  if (!userId) return res.status(401).json({ error: 'Missing session' });
-  req.internalId = userId;
-  next();
-}
-
-// Helper: find user by username
-async function findUserByUsername(username) {
-  return await User.findOne({ username });
-}
-
-// POST /follows/:username - follow a user
-router.post('/:username', requireSession, async (req, res) => {
+// POST /follows/:username - Follow user
+router.post('/:username', requireAuth, async (req, res) => {
   try {
-    const { username } = req.params;
-    const target = await findUserByUsername(username);
-    if (!target) return res.status(404).json({ error: 'User not found' });
-    if (target.internalId === req.internalId) {
-      return res.status(400).json({ error: 'Cannot follow yourself' });
+    const targetUser = await User.findOne({ username: req.params.username.toLowerCase() });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    await Follow.updateOne(
-      { followerInternalId: req.internalId, followingInternalId: target.internalId },
-      { $setOnInsert: { followerInternalId: req.internalId, followingInternalId: target.internalId } },
-      { upsert: true }
-    );
+    if (targetUser.internalId === req.internalId) {
+      return res.status(400).json({ success: false, error: 'Cannot follow yourself' });
+    }
 
-    const followers = await Follow.countDocuments({ followingInternalId: target.internalId });
-    res.json({ success: true, isFollowing: true, followers });
+    // Check if already following
+    const existing = await Follow.findOne({
+      followerInternalId: req.internalId,
+      followingInternalId: targetUser.internalId
+    });
+
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'Already following' });
+    }
+
+    const follow = new Follow({
+      followerInternalId: req.internalId,
+      followingInternalId: targetUser.internalId
+    });
+
+    await follow.save();
+
+    res.json({
+      success: true,
+      message: 'User followed',
+      following: true
+    });
   } catch (error) {
     console.error('Follow error:', error);
-    res.status(500).json({ error: 'Failed to follow user' });
+    res.status(500).json({ success: false, error: 'Failed to follow user' });
   }
 });
 
-// DELETE /follows/:username - unfollow a user
-router.delete('/:username', requireSession, async (req, res) => {
+// DELETE /follows/:username - Unfollow user
+router.delete('/:username', requireAuth, async (req, res) => {
   try {
-    const { username } = req.params;
-    const target = await findUserByUsername(username);
-    if (!target) return res.status(404).json({ error: 'User not found' });
-    if (target.internalId === req.internalId) {
-      return res.status(400).json({ error: 'Cannot unfollow yourself' });
+    const targetUser = await User.findOne({ username: req.params.username.toLowerCase() });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    await Follow.deleteOne({ followerInternalId: req.internalId, followingInternalId: target.internalId });
+    const result = await Follow.deleteOne({
+      followerInternalId: req.internalId,
+      followingInternalId: targetUser.internalId
+    });
 
-    const followers = await Follow.countDocuments({ followingInternalId: target.internalId });
-    res.json({ success: true, isFollowing: false, followers });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, error: 'Not following' });
+    }
+
+    res.json({
+      success: true,
+      message: 'User unfollowed',
+      following: false
+    });
   } catch (error) {
     console.error('Unfollow error:', error);
-    res.status(500).json({ error: 'Failed to unfollow user' });
+    res.status(500).json({ success: false, error: 'Failed to unfollow user' });
   }
 });
 
-// GET /follows/status/:username - whether viewer follows user
-router.get('/status/:username', requireSession, async (req, res) => {
+// GET /follows/status/:username - Get follow status
+router.get('/status/:username', requireAuth, async (req, res) => {
   try {
-    const { username } = req.params;
-    const target = await findUserByUsername(username);
-    if (!target) return res.status(404).json({ error: 'User not found' });
-
-    const existing = await Follow.findOne({ followerInternalId: req.internalId, followingInternalId: target.internalId });
-    res.json({ isFollowing: !!existing });
-  } catch (error) {
-    console.error('Follow status error:', error);
-    res.status(500).json({ error: 'Failed to get follow status' });
-  }
-});
-
-// GET /follows/counts/:username - follower/following counts for profile
-router.get('/counts/:username', async (req, res) => {
-  try {
-    const { username } = req.params;
-    const target = await findUserByUsername(username);
-    if (!target) return res.status(404).json({ error: 'User not found' });
-
-    const [followers, following] = await Promise.all([
-      Follow.countDocuments({ followingInternalId: target.internalId }),
-      Follow.countDocuments({ followerInternalId: target.internalId }),
-    ]);
-
-    res.json({ followers, following });
-  } catch (error) {
-    console.error('Follow counts error:', error);
-    res.status(500).json({ error: 'Failed to get follow counts' });
-  }
-});
-
-// GET /follows/following/:username - Get list of users a specific user is following
-router.get('/following/:username', async (req, res) => {
-  try {
-    const { username } = req.params;
-    const targetUser = await findUserByUsername(username);
+    const targetUser = await User.findOne({ username: req.params.username.toLowerCase() });
     if (!targetUser) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    const follows = await Follow.find({ followerInternalId: targetUser.internalId });
-    const followingIds = follows.map(f => f.followingInternalId);
-    const users = await User.find({ internalId: { $in: followingIds } }).select('username displayName');
+    const follow = await Follow.findOne({
+      followerInternalId: req.internalId,
+      followingInternalId: targetUser.internalId
+    });
 
-    res.json(users);
+    res.json({
+      success: true,
+      isFollowing: !!follow
+    });
   } catch (error) {
-    console.error('Get following list for user error:', error);
-    res.status(500).json({ error: 'Failed to get following list' });
+    console.error('Follow status error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check follow status' });
   }
 });
 
-// GET /follows/following - Get list of users the current user is following
-router.get('/following', requireSession, async (req, res) => {
+// GET /follows/counts/:username - Get follow counts
+router.get('/counts/:username', optionalAuth, async (req, res) => {
   try {
-    // 1. Find all follow relationships for the current user
-    const follows = await Follow.find({ followerInternalId: req.internalId });
+    const user = await User.findOne({ username: req.params.username.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
 
-    // 2. Extract the internalIds of the users being followed
-    const followingIds = follows.map(f => f.followingInternalId);
+    const followers = await Follow.countDocuments({ followingInternalId: user.internalId });
+    const following = await Follow.countDocuments({ followerInternalId: user.internalId });
 
-    // 3. Find all users who match the extracted IDs
-    const users = await User.find({ internalId: { $in: followingIds } }).select('username displayName');
-
-    res.json(users);
+    res.json({
+      success: true,
+      username: user.username,
+      followers,
+      following
+    });
   } catch (error) {
-    console.error('Get following list error:', error);
-    res.status(500).json({ error: 'Failed to get following list' });
+    console.error('Follow counts error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get follow counts' });
+  }
+});
+
+// GET /follows/following/:username - Get following list for user
+router.get('/following/:username', optionalAuth, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+
+    const user = await User.findOne({ username: req.params.username.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const total = await Follow.countDocuments({ followerInternalId: user.internalId });
+    const follows = await Follow.find({ followerInternalId: user.internalId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const followingUsers = await Promise.all(follows.map(async (f) => {
+      const followedUser = await User.findOne({ internalId: f.followingInternalId });
+      return {
+        username: followedUser?.username,
+        displayName: followedUser?.displayName,
+        internalId: followedUser?.internalId,
+        profilePicture: followedUser?.profilePicture?.url || null
+      };
+    }));
+
+    res.json({
+      success: true,
+      username: user.username,
+      following: followingUsers,
+      pagination: getPaginationMeta(total, page, limit)
+    });
+  } catch (error) {
+    console.error('Following list error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch following list' });
+  }
+});
+
+// GET /follows/following - Get current user's following list
+router.get('/following', requireAuth, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+
+    const total = await Follow.countDocuments({ followerInternalId: req.internalId });
+    const follows = await Follow.find({ followerInternalId: req.internalId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const followingUsers = await Promise.all(follows.map(async (f) => {
+      const user = await User.findOne({ internalId: f.followingInternalId });
+      return {
+        username: user?.username,
+        displayName: user?.displayName,
+        internalId: user?.internalId,
+        profilePicture: user?.profilePicture?.url || null
+      };
+    }));
+
+    res.json({
+      success: true,
+      following: followingUsers,
+      pagination: getPaginationMeta(total, page, limit)
+    });
+  } catch (error) {
+    console.error('My following list error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch following list' });
   }
 });
 
