@@ -1,44 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchBookmarks } from '../api/api';
 import StoryCard from './StoryCard';
-import { SkeletonStoryList } from './SkeletonLoader';
-import useMinLoadTime from '../hooks/useMinLoadTime';
+import { SkeletonFeedCards, SkeletonFeedPagination, SkeletonRegion } from './SkeletonLoader';
+import useRegionLoading from '../hooks/useRegionLoading';
 
 export default function Bookmarks({ onBack, onReadStory, onProfile }) {
   const [bookmarks, setBookmarks] = useState([]);
   const [rawLoading, setRawLoading] = useState(true);
-  const loading = useMinLoadTime(rawLoading, 100);
+  const [regionBusy, setRegionBusy] = useState(true);
+  const [paging, setPaging] = useState(false);
+  const regionLoading = useRegionLoading(regionBusy);
+  const pagingLoading = useRegionLoading(paging);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const containerRef = useRef(null);
+  const pagingLock = useRef(false);
 
   useEffect(() => {
     loadBookmarks(1, true);
   }, [searchQuery]);
 
   useEffect(() => {
-    // Infinite scroll
     const handleScroll = () => {
-      if (!containerRef.current || loading || !hasMore) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      if (scrollHeight - scrollTop - clientHeight < 100) {
-        loadBookmarks(page + 1, false);
-      }
+      if (regionLoading || pagingLoading || pagingLock.current || !hasMore) return;
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 160;
+      if (nearBottom) loadBookmarks(page + 1, false);
     };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [page, loading, hasMore]);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [page, regionLoading, pagingLoading, hasMore]);
 
   const loadBookmarks = async (pageNum = 1, reset = true) => {
+    if (pagingLock.current) return;
+    pagingLock.current = true;
     try {
+      if (reset) setRegionBusy(true);
+      else setPaging(true);
       setRawLoading(true);
       const result = await fetchBookmarks(pageNum, 8, searchQuery);
 
@@ -66,6 +66,9 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
       setHasMore(false);
     } finally {
       setRawLoading(false);
+      setRegionBusy(false);
+      setPaging(false);
+      pagingLock.current = false;
     }
   };
 
@@ -95,96 +98,35 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#fefefd',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#666',
-            fontSize: '0.9em',
-            cursor: 'pointer',
-            marginBottom: '30px'
-          }}>
-          ← Back
-        </button>
+    <div className="list-page">
+      <div className="list-page__inner">
+        <button onClick={onBack} className="btn-back mb-5">← Back</button>
 
         {/* Header */}
         <div style={{
-          background: '#fff',
-          borderRadius: '8px',
+          background: 'var(--glass-bg-strong)',
+          borderRadius: 'var(--radius-md)',
           padding: '24px',
-          boxShadow: '0 1px 4px #efefee',
+          boxShadow: 'var(--shadow-sm)',
           marginBottom: '24px',
-          border: '1px solid #ddd'
+          border: '1px solid var(--border)'
         }}>
-          <div style={{
-            fontSize: '1.8em',
-            marginBottom: '12px',
-            color: '#333',
-            fontWeight: '500'
-          }}>
-            Bookmarks
-          </div>
-          <div style={{
-            fontSize: '0.9em',
-            color: '#666',
-            marginBottom: '20px'
-          }}>
-            Stories you've saved to read later
-          </div>
+          <h1 className="page-title">Bookmarks</h1>
+          <p className="page-sub">Stories you’ve saved to read later</p>
 
           {/* Search Bar */}
           <form onSubmit={handleSearch}>
-            <div style={{
-              display: 'flex',
-              gap: '8px'
-            }}>
+            <div className="search-bar__row">
               <input
-                type="text"
+                type="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search by title or author..."
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  outline: 'none'
-                }}
+                className="form-input search-bar__input"
               />
-              <button
-                type="submit"
-                style={{
-                  padding: '8px 16px',
-                  background: '#222',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.9em',
-                  cursor: 'pointer'
-                }}>
-                Search
-              </button>
+              <button type="submit" className="btn btn--primary">Search</button>
               {searchQuery && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'transparent',
-                    color: '#666',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '0.9em',
-                    cursor: 'pointer'
-                  }}>
+                <button type="button" onClick={handleClearSearch} className="btn btn--secondary">
                   Clear
                 </button>
               )}
@@ -193,17 +135,10 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
         </div>
 
         {/* Bookmarks List */}
-        <div
-          ref={containerRef}
-          style={{
-            maxHeight: 'calc(100vh - 250px)',
-            overflowY: 'auto',
-            paddingRight: '8px'
-          }}
-        >
+        <div ref={containerRef}>
           {error && (
             <div style={{
-              color: '#d44',
+              color: 'var(--rose-dark)',
               textAlign: 'center',
               padding: '20px',
               marginBottom: '20px'
@@ -212,7 +147,12 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
             </div>
           )}
 
-          {bookmarks.length === 0 && !loading ? (
+          <SkeletonRegion
+            loading={regionLoading}
+            minHeight={360}
+            skeleton={<SkeletonFeedCards count={3} />}
+          >
+          {bookmarks.length === 0 ? (
             <div style={{
               textAlign: 'center',
               padding: '60px 20px',
@@ -259,7 +199,7 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
                   />
                   <div style={{
                     fontSize: '0.75em',
-                    color: '#999',
+                    color: 'var(--text-tertiary)',
                     marginTop: '4px',
                     paddingLeft: '4px'
                   }}>
@@ -270,8 +210,11 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
             </div>
           )}
 
-          {/* Load More Button (fallback) */}
-          {hasMore && !loading && (
+          </SkeletonRegion>
+
+          {pagingLoading && <SkeletonFeedPagination />}
+
+          {hasMore && !regionLoading && !pagingLoading && (
             <div style={{
               textAlign: 'center',
               marginTop: '30px'
@@ -281,20 +224,14 @@ export default function Bookmarks({ onBack, onReadStory, onProfile }) {
                 style={{
                   padding: '12px 24px',
                   background: 'transparent',
-                  color: '#666',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
                   fontSize: '0.9em',
                   cursor: 'pointer'
                 }}>
                 Load More
               </button>
-            </div>
-          )}
-
-          {isLoading && bookmarks.length > 0 && ( // Show more skeletons if loading more
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
-              <SkeletonStoryList count={3} />
             </div>
           )}
         </div>

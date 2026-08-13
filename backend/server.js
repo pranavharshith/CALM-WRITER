@@ -111,7 +111,7 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.indexOf(origin) !== -1 || !process.env.NODE_ENV === 'production') {
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
       logSecurityEvent('CORS_REJECTED', { origin, allowedOrigins });
@@ -153,11 +153,14 @@ app.use((req, res, next) => {
   const publicAuthPaths = [
     '/auth/signin',
     '/auth/signup',
+    '/auth/dev-login', // Dev-only admin bypass — skipped CSRF same as signin (pre-session call)
     '/auth/forgot-password',
     '/auth/reset-password',
     '/auth/refresh',
     '/auth/request-otp',
-    '/auth/verify-otp'
+    '/auth/verify-otp',
+    '/auth/verify-email',
+    '/auth/resend-verification'
   ];
   if (publicAuthPaths.some(p => req.path === p || req.path.startsWith(p + '/'))) {
     return next();
@@ -273,7 +276,7 @@ app.get('/health', async (req, res) => {
 // API routes with specific rate limiters
 const { authLimiter, reportLimiter, loginAttemptLimiter } = require('./middleware/rateLimiter');
 
-app.use('/auth', authLimiter, require('./routes/auth'));
+app.use('/auth', require('./routes/auth'));
 app.use('/auth', require('./routes/auth-refresh'));
 app.use('/auth', require('./routes/sessions')); // Logout and verify endpoints
 app.use('/stories', require('./routes/stories'));
@@ -296,13 +299,14 @@ app.use('/notifications', require('./routes/notifications'));
 app.use('/edit-requests', require('./routes/edit-requests'));
 
 // Collaborative Hubs routes
-app.use('/hubs', require('./routes/hub-management'));
-app.use('/hubs', require('./routes/hub-content-chat'));
+// hub-management is mounted LAST because its GET /:hubId would otherwise shadow
+// more specific GET routes (e.g. /hubs/creator-applications, /hubs/my-application).
 app.use('/hubs', require('./routes/hub-creator-applications'));
 app.use('/hubs', require('./routes/hub-membership'));
 app.use('/hubs', require('./routes/hub-content'));
 app.use('/hubs', require('./routes/hub-chat'));
 app.use('/hubs', require('./routes/hub-applications'));
+app.use('/hubs', require('./routes/hub-management'));
 
 // Initialize MinIO storage (graceful degradation if unavailable)
 const { initializeBucket, checkMinIOHealth } = require('./utils/minioStorage');

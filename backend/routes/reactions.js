@@ -24,7 +24,7 @@ router.post('/submit', requireAuth, async (req, res) => {
       });
     }
 
-    const validReactions = ['felt', 'moved', 'inspired', 'comforted'];
+    const validReactions = ['stayed_with_me', 'felt_seen', 'learned_something'];
     if (!validReactions.includes(reactionType)) {
       return res.status(400).json({ success: false, error: 'Invalid reaction type' });
     }

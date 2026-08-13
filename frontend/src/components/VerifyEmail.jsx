@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { verifyEmail, resendVerification } from '../api/api';
+import './Auth.css';
+import { CheckIcon } from '../icons/Icons';
 
 export default function VerifyEmail() {
     const [searchParams] = useSearchParams();
@@ -30,9 +32,13 @@ export default function VerifyEmail() {
                 setStatus('success');
                 if (result.accessToken) {
                     localStorage.setItem('accessToken', result.accessToken);
-                    localStorage.setItem('refreshToken', result.refreshToken);
                     localStorage.setItem('calmstories_user', JSON.stringify(result.user));
                     localStorage.setItem('calmstories_internal_id', result.user.internalId);
+                    localStorage.setItem('username', result.user.username);
+                    localStorage.setItem('userRole', result.user.role);
+                    // Tell App to reload the user state so the feed shows the
+                    // freshly verified, logged-in user immediately.
+                    window.dispatchEvent(new CustomEvent('auth:login'));
                 }
                 setTimeout(() => {
                     navigate('/community');
@@ -61,52 +67,55 @@ export default function VerifyEmail() {
     };
 
     return (
-        <div className="auth-page">
+        <div className="auth-container">
             <div className="auth-card">
                 <h1 className="auth-title">Email Verification</h1>
 
                 {status === 'verifying' && (
-                    <div className="text-center">
-                        <div className="skeleton-line" style={{ width: '50%', margin: '20px auto' }}></div>
+                    <div className="text-center" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
                         <p>Verifying your email...</p>
                     </div>
                 )}
 
                 {status === 'success' && (
-                    <div className="text-center success-message">
-                        <h2 style={{ color: '#2ecc71' }}>✓ Verified!</h2>
+                    <div className="text-center" style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'var(--sage-dark)', display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                            <CheckIcon size={32} />
+                        </div>
+                        <h2 style={{ color: 'var(--sage-dark)' }}>Verified!</h2>
                         <p>Your email has been successfully verified.</p>
                         <p>Redirecting you to the community...</p>
-                        <Link to="/community" className="btn btn-primary">Go to Community</Link>
+                        <Link to="/community" className="auth-button" style={{ display: 'inline-block', textDecoration: 'none', marginTop: '1rem' }}>Go to Community</Link>
                     </div>
                 )}
 
                 {status === 'error' && (
-                    <div className="">
-                        <div className="alert alert--error mb-4">
+                    <div>
+                        <div className="error-message" style={{ marginBottom: '1rem' }}>
                             {message}
                         </div>
 
-                        <p className="mb-4">The link may be expired or invalid.</p>
+                        <p style={{ margin: '0 0 1rem 0' }}>The link may be expired or invalid.</p>
 
-                        <h3 className="text-lg font-bold mb-2">Resend Verification Email</h3>
+                        <h3 style={{ margin: '0 0 0.5rem 0' }}>Resend Verification Email</h3>
                         <form onSubmit={handleResend} className="auth-form">
-                            <input
-                                type="email"
-                                placeholder="Enter your email"
-                                value={resendEmail}
-                                onChange={e => setResendEmail(e.target.value)}
-                                className="auth-input"
-                                required
-                            />
-                            <button disabled={resendStatus === 'sending'} className="auth-btn">
+                            <div className="form-group">
+                                <input
+                                    type="email"
+                                    placeholder="Enter your email"
+                                    value={resendEmail}
+                                    onChange={e => setResendEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <button disabled={resendStatus === 'sending'} className="auth-button">
                                 {resendStatus === 'sending' ? 'Sending...' : 'Resend Email'}
                             </button>
-                            {resendStatus === 'sent' && <p className="text-green-600 mt-2">Check your email for a new link.</p>}
+                            {resendStatus === 'sent' && <p className="success-message">Check your email for a new link.</p>}
                         </form>
 
-                        <div className="auth-footer mt-4">
-                            <Link to="/login">Back to Login</Link>
+                        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                            <Link to="/login" className="link-button">Back to Login</Link>
                         </div>
                     </div>
                 )}

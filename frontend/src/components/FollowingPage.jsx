@@ -6,7 +6,7 @@ import useMinLoadTime from '../hooks/useMinLoadTime';
 export default function FollowingPage({ username, onBack, onProfile }) {
   const [following, setFollowing] = useState([]);
   const [rawLoading, setRawLoading] = useState(true);
-  const loading = useMinLoadTime(rawLoading, 1000);
+  const loading = useMinLoadTime(rawLoading);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -19,9 +19,12 @@ export default function FollowingPage({ username, onBack, onProfile }) {
     try {
       setRawLoading(true);
       setError('');
-      const result = await getFollowingList(username);
-      if (Array.isArray(result)) {
-        setFollowing(result);
+      const result = await getFollowingList(username, 1, 100);
+      const list = Array.isArray(result)
+        ? result
+        : (Array.isArray(result?.following) ? result.following : null);
+      if (list) {
+        setFollowing(list.filter(u => u && u.username));
       } else {
         setError('Could not load the following list.');
       }
@@ -34,50 +37,43 @@ export default function FollowingPage({ username, onBack, onProfile }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#666',
-            fontSize: '0.9em',
-            cursor: 'pointer',
-            marginBottom: '30px'
-          }}>
-          ← Back to Profile
-        </button>
-
-        <h1 style={{ fontSize: '2em', marginBottom: '30px', color: '#333' }}>Following @{username}</h1>
+    <div className="list-page">
+      <div className="list-page__inner">
+        <button onClick={onBack} className="btn-back mb-5">← Back to profile</button>
+        <h1 className="page-title">Following @{username}</h1>
+        <p className="page-sub">Writers they keep up with</p>
 
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+          <div className="list-page__stack">
             {[1, 2, 3, 4, 5].map(i => <SkeletonFollowRow key={i} />)}
           </div>
         ) : error ? (
-          <div style={{ color: '#d44' }}>{error}</div>
+          <div className="alert alert--error">{error}</div>
         ) : following.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', opacity: 0.5, fontSize: '1.1em' }}>
-            Not following anyone yet.
-          </div>
+          <div className="feed__empty">Not following anyone yet.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {following.map((user) => (
-              <div
-                key={user.username}
-                style={{
-                  padding: '20px',
-                  background: '#fff',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-                onClick={() => onProfile(user.username)}
+          <div className="list-page__stack">
+            {following.map((person) => (
+              <button
+                key={person.username}
+                type="button"
+                className="follow-row glass"
+                onClick={() => onProfile(person.username)}
               >
-                <span style={{ fontSize: '1.2em', color: '#333' }}>@{user.username}</span>
-                {user.displayName && <span style={{ marginLeft: '10px', color: '#777' }}>({user.displayName})</span>}
-              </div>
+                {person.profilePicture ? (
+                  <img src={person.profilePicture} alt="" className="story-card__avatar" />
+                ) : (
+                  <div className="story-card__avatar-placeholder">
+                    {person.username[0].toUpperCase()}
+                  </div>
+                )}
+                <span>
+                  <span className="follow-row__name">@{person.username}</span>
+                  {person.displayName && (
+                    <span className="follow-row__meta" style={{ display: 'block' }}>{person.displayName}</span>
+                  )}
+                </span>
+              </button>
             ))}
           </div>
         )}

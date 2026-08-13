@@ -1,0 +1,178 @@
+/* ────────────────────────────────────────────────────────────────
+   14. SETTINGS
+   ──────────────────────────────────────────────────────────────── */
+.settings-page {
+  min-height: 100vh;
+  background: var(--bg-page);
+  padding: var(--sp-5);
+}
+
+.settings-page__inner {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.settings-page__heading {
+  font-size: var(--fs-3xl);
+  margin-bottom: var(--sp-2);
+  font-weight: normal;
+}
+
+.settings-page__sub {
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-8);
+  font-size: var(--fs-sm);
+}
+
+.settings-card {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-8);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+}
+
+.settings-section {
+  margin-bottom: var(--sp-8);
+}
+
+.settings-section__title {
+  font-size: var(--fs-lg);
+  margin-bottom: var(--sp-5);
+  padding-bottom: var(--sp-2);
+  border-bottom: 2px solid var(--text-primary);
+  font-weight: 600;
+}
+
+/* Setting row (label + toggle side by side) */
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-row__label-title {
+  font-weight: 600;
+  margin-bottom: var(--sp-1);
+}
+
+.settings-row__label-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Setting block (full-width form element below label) */
+.settings-block {
+  margin-bottom: var(--sp-5);
+}
+
+.settings-block__label {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-weight: 600;
+  font-size: var(--fs-base);
+}
+
+.settings-block__label--sm {
+  font-size: 14px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+/* Inset panel used for toggle rows */
+.settings-panel {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-4);
+  background: var(--glass-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+}
+
+/* Option group buttons (font size, scroll speed) */
+.settings-option-group {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.settings-option-btn {
+  flex: 1;
+  padding: var(--sp-2);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  text-transform: capitalize;
+  font-size: 14px;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.settings-option-btn:hover:not(.settings-option-btn--active) {
+  background: var(--glass-bg-hover);
+}
+
+.settings-option-btn--active {
+  background: var(--text-primary);
+  color: var(--bg-page);
+  border-color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settings-select {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: var(--font-serif);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.settings-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-save-btn {
+  width: 100%;
+  padding: var(--sp-3);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  font-family: inherit;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+.settings-save-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.settings-save-btn:disabled {
+  background: var(--bg-active);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.settings-loading {
+  min-height: 100vh;
+  background: var(--bg-page);
+  padding: var(--sp-5);
+  text-align: center;
+  color: var(--text-secondary);
+  padding-top: 80px;
+}

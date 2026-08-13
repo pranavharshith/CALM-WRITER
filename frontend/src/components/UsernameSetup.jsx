@@ -25,8 +25,10 @@ export default function UsernameSetup({ user, onComplete }) {
       const result = await setupUsername(user.internalId, username.trim());
       if (result.success) {
         // Update stored user info
-        const updatedUser = { ...user, username: result.username, needsUsername: false };
+        const newUsername = result.user?.username || result.username;
+        const updatedUser = { ...user, username: newUsername, needsUsername: false };
         localStorage.setItem('calmstories_user', JSON.stringify(updatedUser));
+        localStorage.setItem('username', newUsername);
         onComplete(updatedUser);
       } else {
         setError(result.error || 'Failed to set username');
@@ -45,16 +47,16 @@ export default function UsernameSetup({ user, onComplete }) {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#fefefd',
+      background: 'transparent',
       padding: '20px'
     }}>
       <div style={{
         maxWidth: '400px',
         width: '100%',
-        background: '#fff',
+        background: 'var(--glass-bg-strong)',
         padding: '40px',
-        borderRadius: '8px',
-        boxShadow: '0 1px 8px #efefee'
+        borderRadius: 'var(--radius-md)',
+        boxShadow: 'var(--shadow-sm)'
       }}>
         <div style={{
           fontSize: '1.5em',
@@ -93,8 +95,8 @@ export default function UsernameSetup({ user, onComplete }) {
               style={{
                 width: '100%',
                 padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
                 fontSize: '1em'
               }}
               placeholder="your_username"
@@ -116,10 +118,10 @@ export default function UsernameSetup({ user, onComplete }) {
             style={{
               width: '100%',
               padding: '12px',
-              background: (loading || !username.trim()) ? '#bbb' : '#222',
-              color: '#fff',
+              background: (loading || !username.trim()) ? 'var(--bg-active)' : 'var(--accent)',
+              color: (loading || !username.trim()) ? 'var(--text-muted)' : 'var(--accent-contrast)',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: 'var(--radius-md)',
               fontSize: '1em',
               cursor: (loading || !username.trim()) ? 'not-allowed' : 'pointer'
             }}>
@@ -129,7 +131,7 @@ export default function UsernameSetup({ user, onComplete }) {
 
         {error && (
           <div style={{
-            color: '#d44',
+            color: 'var(--rose-dark)',
             fontSize: '0.9em',
             marginTop: '15px',
             textAlign: 'center'

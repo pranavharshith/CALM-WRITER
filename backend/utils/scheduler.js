@@ -17,8 +17,8 @@ if (!VALID_TIMEZONES.includes(TIMEZONE)) {
 }
 
 // Import job functions
-const { selectWeeklyFeaturedStory } = require('../jobs/weeklyFeatured');
-const { cleanOldDrafts } = require('../jobs/cleanDrafts');
+const { calculateWeeklyFeatured } = require('../jobs/weeklyFeatured');
+const { cleanAbandonedDrafts } = require('../jobs/cleanDrafts');
 const { cleanExpiredOTPs } = require('../jobs/cleanExpiredOTPs');
 const { cleanupExpiredData } = require('../jobs/dataRetentionCleanup');
 
@@ -33,7 +33,7 @@ function initializeScheduledJobs() {
     cron.schedule('0 0 * * 1', async () => {
         logger.info('Running weekly featured story selection...');
         try {
-            await selectWeeklyFeaturedStory();
+            await calculateWeeklyFeatured();
             logger.info('✓ Weekly featured story selected');
         } catch (error) {
             logger.error('Failed to select weekly featured story:', error);
@@ -47,7 +47,7 @@ function initializeScheduledJobs() {
     cron.schedule('0 2 * * *', async () => {
         logger.info('Running draft cleanup job...');
         try {
-            await cleanOldDrafts();
+            await cleanAbandonedDrafts();
             logger.info('✓ Old drafts cleaned');
         } catch (error) {
             logger.error('Failed to clean old drafts:', error);

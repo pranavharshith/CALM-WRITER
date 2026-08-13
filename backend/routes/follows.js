@@ -34,6 +34,16 @@ router.post('/:username', requireAuth, async (req, res) => {
 
     await follow.save();
 
+    // Notify the followed user
+    const { createNotification } = require('../utils/notificationHelper');
+    createNotification({
+      userInternalId: targetUser.internalId,
+      type: 'follow',
+      fromUserId: req.internalId,
+      fromUsername: req.user?.username,
+      message: `@${req.user?.username || 'Someone'} started following you.`
+    });
+
     res.json({
       success: true,
       message: 'User followed',

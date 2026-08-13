@@ -3,6 +3,7 @@ const router = express.Router();
 const Draft = require('../models/Draft');
 const Story = require('../models/Story');
 const { requireAuth } = require('../middleware/auth-consolidated');
+const { checkAndUpdateStoryPublishCooldown } = require('../utils/cooldownManager');
 
 // Use centralized JWT auth middleware instead of legacy header-based auth
 
@@ -140,13 +141,11 @@ router.post('/:id/publish', requireAuth, async (req, res) => {
 
         // Admins can publish unlimited stories
         if (user && user.role !== 'admin') {
-            const latest = await Story.findOne({ internalAuthorId: req.internalId }).sort({ createdAt: -1 });
-            if (latest && Date.now() - latest.createdAt.getTime() < 12 * 60 * 60 * 1000) {
-                const timeRemaining = (12 * 60 * 60 * 1000) - (Date.now() - latest.createdAt.getTime());
-                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+            const cooldownCheck = await checkAndUpdateStoryPublishCooldown(req.internalId, 12);
+            if (!cooldownCheck.allowed) {
                 return res.status(403).json({
-                    error: `You can publish again in ${hours}h ${minutes}m. Keep writing drafts in the meantime!`
+                    error: cooldownCheck.message,
+                    timeRemaining: cooldownCheck.timeRemaining
                 });
             }
         }
@@ -159,6 +158,7 @@ router.post('/:id/publish', requireAuth, async (req, res) => {
             text: draft.text,
             wordCount,
             locked: true,
+            publishedAt: new Date()
         });
         await story.save();
 

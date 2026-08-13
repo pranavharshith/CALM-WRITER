@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { saveDraft, fetchDrafts, deleteDraft, publishDraft, checkCanWrite } from '../api/api';
 import { SkeletonWriteScreen } from './SkeletonLoader';
 import useMinLoadTime from '../hooks/useMinLoadTime';
+import useToast from '../hooks/useToast';
+import ConfirmDialog from './ConfirmDialog';
+import { cacheClearPrefix } from '../utils/screenCache';
 
 export default function WriteScreen({ onBack, user, setUser }) {
   const [title, setTitle] = useState('');
@@ -18,11 +21,24 @@ export default function WriteScreen({ onBack, user, setUser }) {
 
   // Initial load state
   const [rawLoading, setRawLoading] = useState(true);
-  const loading = useMinLoadTime(rawLoading, 1000);
+  const loading = useMinLoadTime(rawLoading);
+  const [draftToDelete, setDraftToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   const autoSaveTimer = useRef(null);
+  const draftIdRef = useRef(null);
 
   useEffect(() => {
+    // Prefill from a daily prompt if the user arrived via "Write from this prompt"
+    const savedPrompt = localStorage.getItem('calmstories_write_prompt');
+    if (savedPrompt) {
+      try {
+        const p = JSON.parse(savedPrompt);
+        if (p?.prompt) setText(`${p.prompt}\n\n`);
+      } catch (e) { /* ignore malformed prompt */ }
+      localStorage.removeItem('calmstories_write_prompt');
+    }
     Promise.all([checkPublishStatus(), loadDrafts()])
       .finally(() => setRawLoading(false));
   }, []);
@@ -33,8 +49,9 @@ export default function WriteScreen({ onBack, user, setUser }) {
       setAutoSaveStatus('Saving...');
       autoSaveTimer.current = setTimeout(async () => {
         try {
-          const result = await saveDraft(title, text, currentDraftId);
+          const result = await saveDraft(title, text, draftIdRef.current || currentDraftId);
           if (result.success) {
+            draftIdRef.current = result.draft._id;
             if (!currentDraftId) setCurrentDraftId(result.draft._id);
             setAutoSaveStatus('Saved');
             setTimeout(() => setAutoSaveStatus(''), 2000);
@@ -51,7 +68,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
     try {
       const status = await checkCanWrite();
       setCanPublish(status.canWrite);
-      setTimeUntilNext(status.timeUntilNext || 0);
+      setTimeUntilNext((status.timeRemaining || 0) * 1000);
     } catch (error) {
       console.error('Failed to check publish status:', error);
     }
@@ -82,19 +99,24 @@ export default function WriteScreen({ onBack, user, setUser }) {
     setSending(true);
     setError('');
     try {
-      let draftIdToPublish = currentDraftId;
-      if (!currentDraftId) {
-        const saveResult = await saveDraft(title.trim(), text.trim());
-        if (saveResult.success) draftIdToPublish = saveResult.draft._id;
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      const saveResult = await saveDraft(title.trim(), text.trim(), draftIdRef.current || currentDraftId);
+      if (!saveResult?.success || !saveResult.draft?._id) {
+        setError(saveResult?.error || 'Failed to save draft before publishing');
+        return;
       }
-      const result = await publishDraft(draftIdToPublish);
+      draftIdRef.current = saveResult.draft._id;
+      setCurrentDraftId(saveResult.draft._id);
+      const result = await publishDraft(saveResult.draft._id);
       if (result.success) {
-        setSuccess('Story published successfully!');
         setTitle('');
         setText('');
         setCurrentDraftId(null);
-        await loadDrafts();
-        setTimeout(() => onBack(), 1500);
+        draftIdRef.current = null;
+        cacheClearPrefix('feed:');
+        if (result.storyId) sessionStorage.setItem('cw_highlight_story', result.storyId);
+        toast.success('Story published');
+        onBack();
       } else {
         setError(result.error || 'Failed to publish story');
       }
@@ -109,23 +131,34 @@ export default function WriteScreen({ onBack, user, setUser }) {
     setTitle(draft.title || '');
     setText(draft.text || '');
     setCurrentDraftId(draft._id);
+    draftIdRef.current = draft._id;
     setShowDrafts(false);
   };
 
-  const handleDeleteDraft = async (draftId, e) => {
+  const handleDeleteDraft = (draftId, e) => {
     e.stopPropagation();
-    if (confirm('Delete this draft?')) {
-      try {
-        await deleteDraft(draftId);
-        await loadDrafts();
-        if (currentDraftId === draftId) {
-          setTitle('');
-          setText('');
-          setCurrentDraftId(null);
-        }
-      } catch (error) {
-        console.error('Failed to delete draft:', error);
+    setDraftToDelete(draftId);
+  };
+
+  const confirmDeleteDraft = async () => {
+    if (!draftToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteDraft(draftToDelete);
+      await loadDrafts();
+      if (currentDraftId === draftToDelete) {
+        setTitle('');
+        setText('');
+        setCurrentDraftId(null);
+        draftIdRef.current = null;
       }
+      toast.success('Draft deleted');
+      setDraftToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete draft:', error);
+      toast.error('Failed to delete draft');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -133,6 +166,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
     setTitle('');
     setText('');
     setCurrentDraftId(null);
+    draftIdRef.current = null;
     setShowDrafts(false);
   };
 
@@ -231,10 +265,11 @@ export default function WriteScreen({ onBack, user, setUser }) {
 
             <button
               type="submit"
-              className="write-screen__publish-btn"
+              className={`write-screen__publish-btn${sending ? ' btn--loading' : ''}`}
               disabled={sending || !text.trim() || !title.trim() || !canPublish}
             >
-              {sending ? 'Publishing...' : (canPublish ? 'Publish' : `Publish in ${formatTimeUntilNext(timeUntilNext)}`)}
+              {sending && <span className="spinner-ring" aria-hidden="true" />}
+              {sending ? 'Publishing…' : (canPublish ? 'Publish' : `Publish in ${formatTimeUntilNext(timeUntilNext)}`)}
             </button>
           </div>
 
@@ -246,6 +281,17 @@ export default function WriteScreen({ onBack, user, setUser }) {
           {error && <div className="write-screen__error">{error}</div>}
           {success && <div className="write-screen__success">{success}</div>}
         </form>
+
+        <ConfirmDialog
+          open={!!draftToDelete}
+          title="Delete this draft?"
+          message="This cannot be undone."
+          confirmLabel="Delete"
+          destructive
+          busy={deleting}
+          onConfirm={confirmDeleteDraft}
+          onCancel={() => { if (!deleting) setDraftToDelete(null); }}
+        />
       </div>
     </div>
   );

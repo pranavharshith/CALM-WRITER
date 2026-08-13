@@ -4,7 +4,7 @@ const CollaborativeHub = require('../models/CollaborativeHub');
 const Story = require('../models/Story');
 const StoryNode = require('../models/StoryNode');
 const User = require('../models/User');
-const { requireAuth } = require('../middleware/auth-consolidated');
+const { requireAuth, optionalAuth } = require('../middleware/auth-consolidated');
 
 // Helper: Check if user is hub member
 function isHubMember(hub, userInternalId) {
@@ -18,7 +18,7 @@ function isHubModerator(hub, userInternalId) {
 }
 
 // POST /hubs/:hubId/stories/submit - Submit story to hub
-router.post('/:hubId/stories/submit', requireAuth, async (req, res) => {
+async function handleHubStorySubmit(req, res) {
     try {
         const { hubId } = req.params;
         const { title, text } = req.body;
@@ -99,10 +99,13 @@ router.post('/:hubId/stories/submit', requireAuth, async (req, res) => {
         console.error('Submit hub story error:', error);
         res.status(500).json({ error: 'Failed to submit story' });
     }
-});
+}
+
+router.post('/:hubId/stories/submit', requireAuth, handleHubStorySubmit);
+router.post('/:hubId/stories', requireAuth, handleHubStorySubmit);
 
 // GET /hubs/:hubId/stories - Get hub stories
-router.get('/:hubId/stories', requireAuth, async (req, res) => {
+router.get('/:hubId/stories', optionalAuth, async (req, res) => {
     try {
         const { hubId } = req.params;
         const { page = 1, limit = 10, sort = 'latest' } = req.query;
@@ -115,7 +118,7 @@ router.get('/:hubId/stories', requireAuth, async (req, res) => {
 
         // Check access
         const isMember = isHubMember(hub, req.internalId);
-        if (hub.visibility === 'private' && !isMember) {
+        if (hub.visibility === 'private' && (!req.internalId || !isMember)) {
             return res.status(403).json({ error: 'This hub is private' });
         }
 
@@ -146,8 +149,10 @@ router.get('/:hubId/stories', requireAuth, async (req, res) => {
         const storiesWithMeta = stories.map(story => ({
             ...story,
             author: authorMap[story.internalAuthorId],
-            isLikedByUser: story.likedBy.includes(req.internalId),
-            preview: story.text.substring(0, 200) + (story.text.length > 200 ? '...' : '')
+            authorUsername: authorMap[story.internalAuthorId]?.username || 'Anonymous',
+            authorDisplayName: authorMap[story.internalAuthorId]?.displayName || 'Anonymous',
+            isLikedByUser: req.internalId ? (story.likedBy || []).includes(req.internalId) : false,
+            preview: (story.text || '').substring(0, 200) + ((story.text || '').length > 200 ? '...' : '')
         }));
 
         res.json({

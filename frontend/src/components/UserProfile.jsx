@@ -2,13 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { fetchUserProfile, getBookmarkCount, followUser, unfollowUser, getFollowStatus, getFollowCounts, uploadProfilePicture, deleteProfilePicture } from '../api/api';
 import { SkeletonProfile } from './SkeletonLoader';
 import useMinLoadTime from '../hooks/useMinLoadTime';
+import useToast from '../hooks/useToast';
+import ConfirmDialog from './ConfirmDialog';
 
-export default function UserProfile({ username, onBack, onReadStory, currentUser, onLogout, onViewBookmarks, onViewMyStories, onViewFollowing, onViewUserStories }) {
+export default function UserProfile({ username, onBack, currentUser, onLogout, onViewBookmarks, onViewMyStories, onViewFollowing, onViewUserStories }) {
   const [profile, setProfile] = useState(null);
   const [rawLoading, setRawLoading] = useState(true);
-  const loading = useMinLoadTime(rawLoading, 1000);
+  const loading = useMinLoadTime(rawLoading);
+  const toast = useToast();
   const [error, setError] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [confirmEverywhere, setConfirmEverywhere] = useState(false);
+  const [confirmRemovePic, setConfirmRemovePic] = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -25,9 +30,9 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
     loadFollowInfo();
   }, [username, currentUser]);
 
-  const loadProfile = async () => {
+  const loadProfile = async ({ silent = false } = {}) => {
     try {
-      setRawLoading(true);
+      if (!silent) setRawLoading(true);
       setError('');
       const result = await fetchUserProfile(username);
 
@@ -40,7 +45,7 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
       console.error('Profile load error:', err);
       setError('Failed to load profile');
     } finally {
-      setRawLoading(false);
+      if (!silent) setRawLoading(false);
     }
   };
 
@@ -78,16 +83,19 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
   const handleToggleFollow = async () => {
     if (!currentUser || currentUser.username === username || followLoading) return;
     setFollowLoading(true);
+    const next = !isFollowing;
+    setIsFollowing(next);
     try {
-      if (isFollowing) {
-        const res = await unfollowUser(username);
-        if (!res.error) setIsFollowing(false);
+      const res = next ? await followUser(username) : await unfollowUser(username);
+      if (res.error) {
+        setIsFollowing(!next);
+        toast.error(res.error);
       } else {
-        const res = await followUser(username);
-        if (!res.error) setIsFollowing(true);
+        toast.success(next ? `Following @${username}` : `Unfollowed @${username}`);
       }
     } catch (err) {
-      // ignore
+      setIsFollowing(!next);
+      toast.error('Could not update follow');
     } finally {
       setFollowLoading(false);
     }
@@ -107,13 +115,12 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
 
     // Validate file type
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      alert('Please upload a JPG, PNG, or WebP image');
+      toast.error('Please upload a JPG, PNG, or WebP image');
       return;
     }
 
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be smaller than 5MB');
+      toast.error('Image must be smaller than 5MB');
       return;
     }
 
@@ -121,29 +128,31 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
     try {
       const result = await uploadProfilePicture(file);
       if (result.success) {
-        // Reload profile to show new picture
-        loadProfile();
-        alert('Profile picture updated!');
+        await loadProfile({ silent: true });
+        toast.success('Profile picture updated');
       } else {
-        alert('Failed to upload profile picture');
+        toast.error('Failed to upload profile picture');
       }
     } catch (error) {
-      alert('Failed to upload profile picture');
+      toast.error('Failed to upload profile picture');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleRemoveProfilePicture = async () => {
-    if (!confirm('Remove your profile picture?')) return;
+  const confirmRemovePicture = async () => {
     try {
       const result = await deleteProfilePicture();
       if (result.success) {
-        loadProfile();
-        alert('Profile picture removed');
+        await loadProfile({ silent: true });
+        toast.success('Profile picture removed');
+      } else {
+        toast.error('Failed to remove profile picture');
       }
     } catch (error) {
-      alert('Failed to remove profile picture');
+      toast.error('Failed to remove profile picture');
+    } finally {
+      setConfirmRemovePic(false);
     }
   };
 
@@ -153,22 +162,22 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
 
   if (error || !profile || !profile.user) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fefefd', color: '#333', padding: '20px' }}>
-        <div style={{ color: '#c7968c', marginBottom: '20px' }}>{error || 'Profile not found'}</div>
-        <button onClick={onBack} style={{ padding: '10px 20px', background: '#fff', color: '#333', border: '1px solid #ddd' }}>Back to Community</button>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'transparent', color: 'var(--text-primary)', padding: '20px' }}>
+        <div style={{ color: 'var(--rose)', marginBottom: '20px' }}>{error || 'Profile not found'}</div>
+        <button onClick={onBack} style={{ padding: '10px 20px', background: 'var(--glass-bg-strong)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>Back to Community</button>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent', padding: '20px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <button
           onClick={onBack}
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#666',
+            color: 'var(--text-secondary)',
             fontSize: '0.9em',
             cursor: 'pointer',
             marginBottom: '30px'
@@ -177,7 +186,7 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
         </button>
 
         {/* Profile Header */}
-        <div style={{ background: '#fff', borderRadius: '8px', padding: '32px', boxShadow: '0 1px 4px #efefee', marginBottom: '30px' }}>
+        <div style={{ background: 'var(--glass-bg-strong)', borderRadius: 'var(--radius-md)', padding: '32px', boxShadow: 'var(--shadow-sm)', marginBottom: '30px' }}>
           <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
             {/* Profile Picture */}
             <div style={{ position: 'relative' }}>
@@ -190,7 +199,7 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
                     height: '100px',
                     borderRadius: '50%',
                     objectFit: 'cover',
-                    border: '2px solid #ddd'
+                    border: '2px solid var(--border)'
                   }}
                 />
               ) : (
@@ -198,13 +207,13 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
                   width: '100px',
                   height: '100px',
                   borderRadius: '50%',
-                  background: '#f0f0f0',
-                  border: '2px solid #ddd',
+                  background: 'var(--bg-subtle)',
+                  border: '2px solid var(--border)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '36px',
-                  color: '#666',
+                  color: 'var(--text-secondary)',
                   fontWeight: '600'
                 }}>
                   {profile.user.username?.[0]?.toUpperCase()}
@@ -224,10 +233,10 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
                     disabled={uploading}
                     style={{
                       padding: '6px 12px',
-                      background: '#3d5a80',
-                      color: '#fff',
+                      background: 'var(--accent)',
+                      color: 'var(--accent-contrast)',
                       border: 'none',
-                      borderRadius: '4px',
+                      borderRadius: 'var(--radius-md)',
                       cursor: uploading ? 'not-allowed' : 'pointer',
                       fontSize: '12px'
                     }}
@@ -236,13 +245,13 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
                   </button>
                   {profile.user.profilePicture && (
                     <button
-                      onClick={handleRemoveProfilePicture}
+                      onClick={() => setConfirmRemovePic(true)}
                       style={{
                         padding: '6px 12px',
                         background: 'transparent',
-                        color: '#666',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
                         cursor: 'pointer',
                         fontSize: '12px'
                       }}
@@ -257,16 +266,16 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
             {/* Profile Info */}
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                <div style={{ fontSize: '2em', color: '#333' }}>@{profile.user.username}</div>
+                <div style={{ fontSize: '2em', color: 'var(--text-primary)' }}>@{profile.user.username}</div>
                 {currentUser && currentUser.username !== username && (
                   <button
                     onClick={handleToggleFollow}
-                    disabled={followLoading}
+                    className={followLoading ? 'is-busy' : undefined}
                     style={{
-                      background: '#000',
-                      color: '#fff',
-                      border: '1px solid #000',
-                      borderRadius: '6px',
+                      background: 'var(--accent)',
+                      color: 'var(--accent-contrast)',
+                      border: '1px solid var(--accent)',
+                      borderRadius: 'var(--radius-md)',
                       padding: '6px 12px',
                       fontSize: '0.9em',
                       cursor: followLoading ? 'not-allowed' : 'pointer'
@@ -277,12 +286,12 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
               </div>
 
               {profile.user.displayName && (
-                <div style={{ fontSize: '1.2em', color: '#666', marginBottom: '16px' }}>
+                <div style={{ fontSize: '1.2em', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                   {profile.user.displayName}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '24px', marginBottom: '16px', fontSize: '0.9em', color: '#666' }}>
+              <div style={{ display: 'flex', gap: '24px', marginBottom: '16px', fontSize: '0.9em', color: 'var(--text-secondary)' }}>
                 <span>{profile.stats.totalStories} stories</span>
                 <span>{profile.stats.totalLikes} total likes</span>
                 <span>Joined {formatDate(profile.user.joinedAt)}</span>
@@ -293,41 +302,39 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
           {currentUser && currentUser.username === username && (
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              style={{ marginTop: '16px', padding: '10px 20px', background: '#c7968c', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.9em', cursor: 'pointer' }}>
+              style={{ marginTop: '16px', padding: '10px 20px', background: 'var(--rose)', color: 'var(--rose-contrast)', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '0.9em', cursor: 'pointer' }}>
               Sign Out
             </button>
           )}
         </div>
 
         {showLogoutConfirm && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#fff', borderRadius: '8px', padding: '32px', maxWidth: '400px', width: '90%' }}>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--overlay-scrim)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}>
+            <div style={{ background: 'var(--glass-bg-strong)', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', boxShadow: 'var(--glass-shadow)', padding: '32px', maxWidth: '400px', width: '90%' }}>
               <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.2em' }}>Sign Out?</h3>
-              <p style={{ fontSize: '0.95em', color: '#666', marginBottom: '24px', lineHeight: '1.6' }}>Are you sure you want to sign out?</p>
+              <p style={{ fontSize: '0.95em', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.6' }}>Are you sure you want to sign out?</p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <button
-                  onClick={() => { setShowLogoutConfirm(false); onLogout && onLogout(); }}
-                  style={{ padding: '12px 20px', background: '#c7968c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  onClick={async () => {
+                    setShowLogoutConfirm(false);
+                    const { logoutThisDevice } = await import('../api/api');
+                    await logoutThisDevice();
+                    onLogout && onLogout();
+                  }}
+                  style={{ padding: '12px 20px', background: 'var(--rose)', color: 'var(--rose-contrast)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 'bold' }}>
                   Sign Out (This Device)
                 </button>
 
                 <button
-                  onClick={async () => {
-                    if (confirm('This will invalid all active sessions on other computers/phones. Continue?')) {
-                      setShowLogoutConfirm(false);
-                      // api.logout now calls /logout-all which invalidates all tokens
-                      await import('../api/api').then(mod => mod.logout());
-                      onLogout && onLogout();
-                    }
-                  }}
-                  style={{ padding: '12px 20px', background: '#fff', color: '#d32f2f', border: '2px solid #d32f2f', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  onClick={() => setConfirmEverywhere(true)}
+                  style={{ padding: '12px 20px', background: 'var(--glass-bg-strong)', color: 'var(--rose-dark)', border: '2px solid var(--rose-dark)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 'bold' }}>
                   Log Out Everywhere (All Devices)
                 </button>
 
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  style={{ padding: '12px 20px', background: 'transparent', color: '#666', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer' }}>
+                  style={{ padding: '12px 20px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                   Cancel
                 </button>
               </div>
@@ -335,21 +342,51 @@ export default function UserProfile({ username, onBack, onReadStory, currentUser
           </div>
         )}
 
+        <ConfirmDialog
+          open={confirmRemovePic}
+          title="Remove profile picture?"
+          message="Your avatar will revert to the default initial."
+          confirmLabel="Remove"
+          destructive
+          onConfirm={confirmRemovePicture}
+          onCancel={() => setConfirmRemovePic(false)}
+        />
+
+        <ConfirmDialog
+          open={confirmEverywhere}
+          title="Log out everywhere?"
+          message="This will invalidate all active sessions on other computers and phones."
+          confirmLabel="Log out everywhere"
+          destructive
+          onConfirm={async () => {
+            setConfirmEverywhere(false);
+            setShowLogoutConfirm(false);
+            await import('../api/api').then(mod => mod.logout());
+            onLogout && onLogout();
+          }}
+          onCancel={() => setConfirmEverywhere(false)}
+        />
+
         {/* Sections */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
           <div>
             <div style={{ fontSize: '1.3em', marginBottom: '20px', opacity: 0.8 }}>Content</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <button onClick={() => onViewUserStories(username)} style={{ textAlign: 'left', padding: '20px', background: '#fff', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' }}>
+              <button onClick={() => onViewUserStories(username)} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 View Stories ({profile.stats.totalStories}) →
               </button>
-              <button onClick={() => onViewFollowing(username)} style={{ textAlign: 'left', padding: '20px', background: '#fff', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' }}>
+              <button onClick={() => onViewFollowing(username)} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 View Following ({followingCount}) →
               </button>
               {currentUser && currentUser.username === username && (
-                <button onClick={onViewBookmarks} style={{ textAlign: 'left', padding: '20px', background: '#fff', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' }}>
-                  View Bookmarked Stories ({bookmarkCount}) →
-                </button>
+                <>
+                  <button onClick={onViewBookmarks} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
+                    View Bookmarked Stories ({bookmarkCount}) →
+                  </button>
+                  <button onClick={onViewMyStories} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
+                    My Stories →
+                  </button>
+                </>
               )}
             </div>
           </div>

@@ -76,8 +76,8 @@ router.get('/creator-applications', requireAdmin, async (req, res) => {
           username: user?.username,
           internalId: user?.internalId
         },
-        essay: app.essay.substring(0, 200) + '...',
-        motivation: app.motivation.substring(0, 200) + '...',
+        essay: (app.essay || '').substring(0, 200),
+        motivation: (app.motivation || '').substring(0, 200),
         status: app.status,
         createdAt: app.createdAt
       };

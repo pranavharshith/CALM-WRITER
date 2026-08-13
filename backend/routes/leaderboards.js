@@ -9,6 +9,7 @@ const { optionalAuth } = require('../middleware/auth-consolidated');
 router.get('/top-stories', optionalAuth, async (req, res) => {
   try {
     const period = req.query.period || '24h';
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
     let dateFilter = new Date();
 
     // Map period values to days
@@ -27,7 +28,7 @@ router.get('/top-stories', optionalAuth, async (req, res) => {
         }
       },
       { $sort: { likes: -1 } },
-      { $limit: 20 },
+      { $limit: limit },
       {
         $lookup: {
           from: 'users',
@@ -87,7 +88,7 @@ router.get('/most-felt', optionalAuth, async (req, res) => {
         $project: {
           _id: '$story._id',
           title: '$story.title',
-          preview: { $substr: ['$story.text', 0, 150] },
+          preview: { $substrCP: [{ $ifNull: ['$story.text', ''] }, 0, 150] },
           authorUsername: { $arrayElemAt: ['$author.username', 0] },
           reactions: '$count',
           completionRate: 100,
@@ -111,8 +112,6 @@ router.get('/quietly-powerful', optionalAuth, async (req, res) => {
     // Use aggregation to avoid N+1 query
     const stories = await Story.aggregate([
       { $match: { hidden: false } },
-      { $sort: { likes: 1 } },
-      { $limit: limit },
       {
         $lookup: {
           from: 'reactions',
@@ -129,17 +128,25 @@ router.get('/quietly-powerful', optionalAuth, async (req, res) => {
           as: 'author'
         }
       },
+      // Rank by depth of engagement first (reactions), then modest like counts
+      {
+        $addFields: {
+          reactionsCount: { $size: { $ifNull: ['$reactions', []] } }
+        }
+      },
+      { $sort: { reactionsCount: -1, likes: 1, createdAt: -1 } },
+      { $limit: limit },
       {
         $project: {
           _id: 1,
           title: 1,
-          preview: { $substr: ['$text', 0, 150] },
+          preview: { $substrCP: [{ $ifNull: ['$text', ''] }, 0, 150] },
           authorUsername: { $arrayElemAt: ['$author.username', 0] },
           likes: { $max: [0, '$likes'] },
-          reactions: { $size: '$reactions' },
+          reactions: '$reactionsCount',
           reads: { $max: [0, '$likes'] },
           continuations: 0,
-          responses: { $size: '$reactions' },
+          responses: '$reactionsCount',
           createdAt: 1
         }
       }
@@ -177,7 +184,7 @@ router.get('/growing-stories', optionalAuth, async (req, res) => {
       return {
         _id: s._id,
         title: s.title,
-        preview: s.text.substring(0, 150),
+        preview: (s.text || '').substring(0, 150),
         authorUsername: author?.username,
         likes: s.likes,
         likesPerDay,

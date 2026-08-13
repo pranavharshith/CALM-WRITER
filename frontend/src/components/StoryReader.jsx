@@ -4,18 +4,18 @@ import ProgressBar from './ProgressBar';
 import ShareButton from './ShareButton';
 import EditRequestsList from './EditRequestsList';
 import EditRequestModal from './EditRequestModal';
-import { trackReadSession, likeStory, fetchCurrentUser, fetchUserPreferences, translateText } from '../api/api';
+import LikeButton from './LikeButton';
+import { trackReadSession, fetchCurrentUser, fetchUserPreferences, translateText } from '../api/api';
 import DualArrowIcon from '../icons/DualArrowIcon';
-import { LIKE_COLORS } from '../styles/likeColors';
+import { MicIcon, SpeakerIcon, PencilIcon, ArrowLeftIcon } from '../icons/Icons';
 import useSpeech from '../hooks/useSpeech';
+import useToast from '../hooks/useToast';
 
 // Font size map — runtime user preference, legitimately inline
 const FONT_SIZE_MAP = { small: '1em', medium: '1.17em', large: '1.4em' };
 
 export default function StoryReader({ story, onBack, onLike }) {
   const [percentRead, setPercentRead] = useState(0);
-  const [canReact, setCanReact] = useState(false);
-  const [liking, setLiking] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [preferences, setPreferences] = useState({ fontSize: 'medium', preferredLanguage: 'en' });
@@ -28,6 +28,7 @@ export default function StoryReader({ story, onBack, onLike }) {
   const ref = useRef(null);
 
   const { toggle: toggleSpeech, isSpeaking } = useSpeech(targetLang);
+  const toast = useToast();
 
   useEffect(() => {
     loadCurrentUser();
@@ -74,7 +75,6 @@ export default function StoryReader({ story, onBack, onLike }) {
     function onScroll() {
       const percent = Math.min(100, Math.round(100 * (el.scrollTop + el.clientHeight) / el.scrollHeight));
       setPercentRead(percent);
-      setCanReact(percent >= 90);
       if (percent > 0) trackReadSession(story._id, percent).catch(console.error);
     }
     el.addEventListener('scroll', onScroll);
@@ -159,21 +159,6 @@ export default function StoryReader({ story, onBack, onLike }) {
     }
   };
 
-  const handleLike = async () => {
-    if (liking) return;
-    setLiking(true);
-    try {
-      const result = await likeStory(story._id);
-      if (result.success && onLike) {
-        onLike(story._id, { likes: result.likes, isLikedByUser: result.liked });
-      }
-    } catch (error) {
-      console.error('Failed to like story:', error);
-    } finally {
-      setLiking(false);
-    }
-  };
-
   const handleSpeech = () => {
     const textToSpeak = showTranslated && translatedText && translatedTitle
       ? `${translatedTitle}. ${translatedText}`
@@ -190,7 +175,7 @@ export default function StoryReader({ story, onBack, onLike }) {
     );
   }
 
-  const storyPreview = story.text.substring(0, 200).replace(/\n/g, ' ');
+  const storyPreview = (story.text || '').substring(0, 200).replace(/\n/g, ' ');
   const shareUrl = `${window.location.origin}/story/${story._id}`;
 
   return (
@@ -213,7 +198,7 @@ export default function StoryReader({ story, onBack, onLike }) {
       <div className="reader__inner">
         {/* Top bar */}
         <div className="reader__topbar">
-          <button onClick={onBack} className="btn-back">← Back</button>
+          <button onClick={onBack} className="btn-back"><ArrowLeftIcon size={14} /> Back</button>
 
           <div className="reader__actions">
             {/* Translate */}
@@ -224,7 +209,7 @@ export default function StoryReader({ story, onBack, onLike }) {
               className={`reader__translate-btn${showTranslated ? ' reader__translate-btn--active' : ''}`}
               style={{ cursor: translating ? 'wait' : 'pointer', opacity: translating ? 0.7 : 1 }}
             >
-              <DualArrowIcon size={18} color={showTranslated ? '#4facfe' : '#636e72'} />
+              <DualArrowIcon size={18} color={showTranslated ? 'var(--blue-icon)' : 'var(--text-muted)'} />
             </button>
 
             {/* Speech */}
@@ -233,7 +218,7 @@ export default function StoryReader({ story, onBack, onLike }) {
               title={isSpeaking ? 'Stop Reading' : 'Read Story Aloud'}
               className={`reader__speech-btn${isSpeaking ? ' reader__speech-btn--active' : ''}`}
             >
-              {isSpeaking ? '🔊' : '🎤'}
+              {isSpeaking ? <SpeakerIcon size={18} /> : <MicIcon size={18} />}
             </button>
 
             {translationError && (
@@ -241,29 +226,13 @@ export default function StoryReader({ story, onBack, onLike }) {
             )}
 
             {/* Like */}
-            <button
-              onClick={handleLike}
-              disabled={liking}
-              className="story-card__action-btn story-card__action-btn--like"
-              style={{ color: story.isLikedByUser ? LIKE_COLORS.liked.text : LIKE_COLORS.notLiked.text }}
-            >
-              <div style={{
-                position: 'relative', width: '14px', height: '14px',
-                transform: story.isLikedByUser ? 'rotate(-45deg) scale(1.1)' : 'rotate(-45deg)',
-                transition: 'transform 0.2s ease'
-              }}>
-                <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.primary : LIKE_COLORS.notLiked.primary, borderRadius: '3px' }} />
-                <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.secondary : LIKE_COLORS.notLiked.secondary, borderRadius: '50%', top: '-7px', left: '0' }} />
-                <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.tertiary : LIKE_COLORS.notLiked.tertiary, borderRadius: '50%', left: '7px', top: '0' }} />
-              </div>
-              <span>{story.likes || 0}</span>
-            </button>
+            <LikeButton story={story} onLike={onLike} />
 
             <ShareButton story={story} />
 
             {currentUser && currentUser.internalId !== story.internalAuthorId && (
               <button onClick={() => setShowEditModal(true)} className="reader__edit-btn">
-                ✏️ Request Edit
+                <PencilIcon size={13} /> Request Edit
               </button>
             )}
           </div>
@@ -305,7 +274,7 @@ export default function StoryReader({ story, onBack, onLike }) {
             onClose={() => setShowEditModal(false)}
             onSuccess={() => {
               setShowEditModal(false);
-              alert('Edit request submitted! It needs 10 votes before the author can respond.');
+              toast.success('Edit request submitted — it needs 10 votes before the author can respond.');
             }}
           />
         )}

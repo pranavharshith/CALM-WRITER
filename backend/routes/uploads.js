@@ -3,11 +3,31 @@ const router = express.Router();
 const User = require('../models/User');
 const Story = require('../models/Story');
 const { requireAuth } = require('../middleware/auth-consolidated');
-const { upload } = require('../middleware/uploadMiddleware');
+const { upload, validateMagicBytes, optimizeImage } = require('../middleware/uploadMiddleware');
+
+async function sanitizeUploadedImage(file) {
+  if (!file?.buffer) {
+    const err = new Error('No image provided');
+    err.status = 400;
+    throw err;
+  }
+  if (!validateMagicBytes(file.buffer, file.mimetype)) {
+    const err = new Error('File content does not match the declared type');
+    err.status = 400;
+    throw err;
+  }
+  try {
+    return await optimizeImage(file.buffer);
+  } catch (error) {
+    const err = new Error('Invalid or unsupported image');
+    err.status = 400;
+    throw err;
+  }
+}
 const { uploadFile, deleteFile } = require('../utils/minioStorage');
 const { verifyCSRFTokenMiddleware } = require('../middleware/csrfProtection');
 const rateLimit = require('express-rate-limit');
-const { ipKey } = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 // Rate limiter for file uploads - 10 uploads per hour per user
 const uploadLimiter = rateLimit({
@@ -16,7 +36,7 @@ const uploadLimiter = rateLimit({
   message: { success: false, error: 'Too many uploads. Maximum 10 uploads per hour.' },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.internalId || ipKey(req),
+  keyGenerator: (req) => req.internalId || ipKeyGenerator(req.ip),
   skip: (req) => !req.internalId // Skip if not authenticated
 });
 
@@ -27,18 +47,23 @@ router.post('/profile-picture', requireAuth, verifyCSRFTokenMiddleware, uploadLi
       return res.status(400).json({ success: false, error: 'No image provided' });
     }
 
+    let optimized;
+    try {
+      optimized = await sanitizeUploadedImage(req.file);
+    } catch (err) {
+      return res.status(err.status || 400).json({ success: false, error: err.message });
+    }
+
     const user = await User.findOne({ internalId: req.internalId });
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    // Delete old profile picture if exists
     if (user.profilePicture?.fileName) {
-      await deleteFromMinIO(`profile-pictures/${user.profilePicture.fileName}`);
+      await deleteFile(user.profilePicture.fileName);
     }
 
-    // Upload new picture
-    const { fileName, url } = await uploadFile(req.file.buffer, `${req.internalId}-${Date.now()}.jpg`, req.file.mimetype);
+    const { fileName, url } = await uploadFile(optimized, `${req.internalId}-${Date.now()}.webp`, 'image/webp');
 
     user.profilePicture = {
       url,
@@ -63,7 +88,7 @@ router.post('/profile-picture', requireAuth, verifyCSRFTokenMiddleware, uploadLi
 });
 
 // DELETE /uploads/profile-picture - Delete profile picture
-router.delete('/profile-picture', requireAuth, async (req, res) => {
+router.delete('/profile-picture', requireAuth, verifyCSRFTokenMiddleware, async (req, res) => {
   try {
     const user = await User.findOne({ internalId: req.internalId });
     if (!user) {
@@ -110,13 +135,18 @@ router.post('/story/:storyId/cover', requireAuth, verifyCSRFTokenMiddleware, upl
       });
     }
 
-    // Delete old cover if exists
+    let optimized;
+    try {
+      optimized = await sanitizeUploadedImage(req.file);
+    } catch (err) {
+      return res.status(err.status || 400).json({ success: false, error: err.message });
+    }
+
     if (story.coverImage?.fileName) {
       await deleteFile(story.coverImage.fileName);
     }
 
-    // Upload new cover
-    const { fileName, url } = await uploadFile(req.file.buffer, `${req.params.storyId}-${Date.now()}.jpg`, req.file.mimetype);
+    const { fileName, url } = await uploadFile(optimized, `${req.params.storyId}-${Date.now()}.webp`, 'image/webp');
 
     story.coverImage = {
       url,
@@ -143,7 +173,7 @@ router.post('/story/:storyId/cover', requireAuth, verifyCSRFTokenMiddleware, upl
 });
 
 // DELETE /uploads/story/:storyId/cover - Delete story cover
-router.delete('/story/:storyId/cover', requireAuth, async (req, res) => {
+router.delete('/story/:storyId/cover', requireAuth, verifyCSRFTokenMiddleware, async (req, res) => {
   try {
     const story = await Story.findById(req.params.storyId);
     if (!story) {

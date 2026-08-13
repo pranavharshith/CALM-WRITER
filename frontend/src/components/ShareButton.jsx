@@ -1,6 +1,9 @@
 import React from 'react';
+import useToast from '../hooks/useToast';
 
 export default function ShareButton({ story, style = {} }) {
+    const toast = useToast();
+
     const handleShare = async (e) => {
         e.stopPropagation(); // Prevent parent click handlers from firing
 
@@ -29,7 +32,7 @@ export default function ShareButton({ story, style = {} }) {
 
     const fallbackCopyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => {
-            alert('Link copied to clipboard! Share it anywhere you like.');
+            toast.success('Link copied to clipboard');
         }).catch(err => {
             console.error('Failed to copy:', err);
             // Final fallback: show the URL
@@ -48,14 +51,14 @@ export default function ShareButton({ story, style = {} }) {
                 alignItems: 'center',
                 gap: '4px',
                 padding: '6px 8px',
-                borderRadius: '4px',
-                color: '#666',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-secondary)',
                 fontSize: '0.85em',
                 transition: 'all 0.2s ease',
                 ...style
             }}
             onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f0f0f0';
+                e.currentTarget.style.background = 'var(--bg-subtle)';
             }}
             onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'none';

@@ -8,7 +8,7 @@ const { checkAndUpdateContinuationCooldown } = require('../utils/cooldownManager
 const { sanitizeMessageMiddleware } = require('../middleware/inputSanitization');
 const { getPaginationParams, getPaginationMeta } = require('../utils/pagination');
 const rateLimit = require('express-rate-limit');
-const { ipKey } = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 // Rate limiter for thread operations - 50 requests per hour
 const threadLimiter = rateLimit({
@@ -17,7 +17,7 @@ const threadLimiter = rateLimit({
   message: { success: false, error: 'Too many thread requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.internalId || ipKey(req),
+  keyGenerator: (req) => req.internalId || ipKeyGenerator(req.ip),
   skip: (req) => req.method === 'GET' // Don't rate limit reads
 });
 
@@ -31,8 +31,8 @@ router.get('/:storyId', optionalAuth, async (req, res) => {
 
     const { page, limit, skip } = getPaginationParams(req.query);
 
-    const total = await StoryNode.countDocuments({ storyId: req.params.storyId });
-    const nodes = await StoryNode.find({ storyId: req.params.storyId })
+    const total = await StoryNode.countDocuments({ parentStoryId: story._id, hidden: false });
+    const nodes = await StoryNode.find({ parentStoryId: story._id, hidden: false })
       .sort({ createdAt: 1 })
       .skip(skip)
       .limit(limit);
@@ -43,6 +43,8 @@ router.get('/:storyId', optionalAuth, async (req, res) => {
         _id: node._id,
         content: node.content,
         type: node.type,
+        authorUsername: author?.username || 'Anonymous',
+        authorRole: author?.role || 'member',
         author: {
           username: author?.username,
           displayName: author?.displayName
@@ -51,13 +53,30 @@ router.get('/:storyId', optionalAuth, async (req, res) => {
       };
     }));
 
+    const author = await User.findOne({ internalId: story.internalAuthorId });
+    const continuations = enriched.filter(n => n.type === 'CONTINUATION');
+    const responses = enriched.filter(n => n.type === 'RESPONSE');
+
     res.json({
       success: true,
+      thread: {
+        _id: story._id,
+        title: story.title,
+        text: story.text,
+        threadLocked: story.threadLocked,
+        authorUsername: author?.username || 'Anonymous',
+        authorRole: author?.role || 'member',
+        isOriginalAuthor: !!(req.internalId && story.internalAuthorId && String(story.internalAuthorId) === String(req.internalId)),
+        continuations,
+        responses
+      },
       story: {
         _id: story._id,
         title: story.title,
         text: story.text,
-        threadLocked: story.threadLocked
+        threadLocked: story.threadLocked,
+        authorUsername: author?.username || 'Anonymous',
+        authorRole: author?.role || 'member'
       },
       nodes: enriched,
       pagination: getPaginationMeta(total, page, limit)
@@ -76,7 +95,7 @@ router.get('/:storyId/has-thread', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Story not found' });
     }
 
-    const nodeCount = await StoryNode.countDocuments({ storyId: req.params.storyId });
+    const nodeCount = await StoryNode.countDocuments({ parentStoryId: story._id, hidden: false });
 
     res.json({
       success: true,
@@ -128,13 +147,28 @@ router.post('/:storyId/continue', requireAuth, threadLimiter, sanitizeMessageMid
     }
 
     const node = new StoryNode({
-      storyId: req.params.storyId,
+      parentStoryId: story._id,
+      rootStoryId: story._id,
       authorInternalId: req.internalId,
       content,
-      type: 'continuation'
+      type: 'CONTINUATION',
+      wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+      locked: true
     });
 
     await node.save();
+
+    // Notify the story author of a new continuation
+    const { createNotification } = require('../utils/notificationHelper');
+    createNotification({
+      userInternalId: story.internalAuthorId,
+      type: 'story_continuation',
+      fromUserId: req.internalId,
+      fromUsername: req.user?.username,
+      storyId: story._id,
+      storyTitle: story.title,
+      message: `@${req.user?.username || 'Someone'} continued your story "${story.title}".`
+    });
 
     res.json({
       success: true,
@@ -169,14 +203,29 @@ router.post('/:storyId/respond', requireAuth, threadLimiter, sanitizeMessageMidd
     }
 
     const node = new StoryNode({
-      storyId: req.params.storyId,
+      parentStoryId: story._id,
+      rootStoryId: story._id,
       authorInternalId: req.internalId,
       content,
-      type: 'response',
-      parentNodeId: nodeId || null
+      type: 'RESPONSE',
+      parentNodeId: nodeId || null,
+      wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+      locked: true
     });
 
     await node.save();
+
+    // Notify the story author of a new response
+    const { createNotification } = require('../utils/notificationHelper');
+    createNotification({
+      userInternalId: story.internalAuthorId,
+      type: 'thread_response',
+      fromUserId: req.internalId,
+      fromUsername: req.user?.username,
+      storyId: story._id,
+      storyTitle: story.title,
+      message: `@${req.user?.username || 'Someone'} responded to your story "${story.title}".`
+    });
 
     res.json({
       success: true,

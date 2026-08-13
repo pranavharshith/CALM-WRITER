@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const { ipKey } = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const RedisStore = require('rate-limit-redis');
 
 // Check if Redis is configured
@@ -133,7 +133,7 @@ const loginAttemptLimiter = rateLimit({
     store: store,
     // Use email/username as key instead of IP
     keyGenerator: (req) => {
-        return req.body.usernameOrEmail || req.body.email || ipKey(req);
+        return req.body.usernameOrEmail || req.body.email || ipKeyGenerator(req.ip);
     }
 });
 

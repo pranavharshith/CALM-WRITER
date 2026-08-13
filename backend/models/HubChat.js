@@ -26,6 +26,11 @@ const HubChatSchema = new mongoose.Schema({
     // Threading
     replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'HubChat' },
 
+    // Soft delete support
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletedBy: { type: String },
+
     createdAt: { type: Date, default: Date.now }
 });
 

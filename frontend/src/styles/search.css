@@ -1,0 +1,192 @@
+/* Search + filters — drawer opens downward and from both ends */
+.search-bar {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: var(--sp-6);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  transition: padding 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-bar.is-expanded {
+  padding-bottom: 20px;
+}
+
+.search-bar__row {
+  display: flex;
+  gap: 12px;
+  transform-origin: center;
+  transition: transform 0.28s cubic-bezier(0.34, 1.1, 0.64, 1);
+}
+
+.search-bar.is-expanded .search-bar__row {
+  transform: scaleX(1);
+}
+
+.search-bar__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-bar__toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 6px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-bar__toggle:hover {
+  color: var(--text-primary);
+}
+
+.search-bar__drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-bar__drawer.is-open {
+  grid-template-rows: 1fr;
+}
+
+.search-bar__drawer-clip {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.search-bar__drawer.is-open .search-bar__drawer-clip {
+  overflow: visible;
+}
+
+.search-bar__drawer-panel {
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  transform: scaleX(0.72);
+  opacity: 0;
+  transform-origin: center top;
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.15, 0.64, 1),
+    opacity 0.22s ease;
+}
+
+.search-bar__drawer.is-open .search-bar__drawer-panel {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.search-bar__field label {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.search-bar__field .form-input {
+  padding: 8px 10px;
+  font-size: var(--fs-sm);
+}
+
+.search-bar input[type='date'],
+.search-bar input[type='number'] {
+  color-scheme: inherit;
+}
+
+.feed__stories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.feed__featured {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  margin-bottom: var(--sp-5);
+  overflow: hidden;
+}
+
+/* Load more */
+.feed__load-more {
+  text-align: center;
+  margin-top: var(--sp-8);
+}
+
+.feed__load-more-btn {
+  padding: var(--sp-3) var(--sp-6);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.feed__load-more-btn:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-dark);
+}
+
+.feed__load-more-btn:disabled {
+  background: var(--bg-active);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  .feed__header {
+    padding: 12px var(--sp-3);
+  }
+
+  .feed__logo {
+    font-size: var(--fs-lg);
+  }
+
+  .feed__nav {
+    gap: 6px;
+  }
+}
+
+/* Responsive: collapse sidebar on smaller screens */
+@media (max-width: 1024px) {
+  .feed__body {
+    flex-direction: column;
+  }
+
+  .feed__sidebar {
+    width: 100%;
+    max-width: 800px;
+  }
+
+  .feed__sidebar-sticky {
+    position: static;
+    width: 100%;
+    height: auto;
+    right: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+}

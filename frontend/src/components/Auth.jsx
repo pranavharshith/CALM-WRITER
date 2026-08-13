@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './Auth.css';
+import { API_BASE } from '../api/api';
+import ThemeToggle from './ThemeToggle';
+import ForgotPasswordView from './auth/ForgotPasswordView';
+import SignInForm from './auth/SignInForm';
+import SignUpForm from './auth/SignUpForm';
 
 function Auth({ onAuthenticated }) {
     const [mode, setMode] = useState('signin');
@@ -45,23 +50,13 @@ function Auth({ onAuthenticated }) {
     }, []);
 
     // Helper to get CSRF token from cookie
-    const getCSRFTokenFromCookie = () => {
-        const cookies = document.cookie.split(';');
-        for (const cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'csrf-token') {
-                return decodeURIComponent(value);
-            }
-        }
-        return null;
-    };
+    // (dead code - CSRF token is read from the /auth/csrf-token response body)
 
     // Fetch CSRF token from server — read from response body, NOT document.cookie
     // (cookies from a different origin are inaccessible to JS)
     const fetchCSRFToken = async () => {
         try {
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-            const response = await fetch(`${apiBase}/auth/csrf-token`, {
+            const response = await fetch(`${API_BASE}/auth/csrf-token`, {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -93,13 +88,12 @@ function Auth({ onAuthenticated }) {
                 return;
             }
 
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-            const response = await fetch(`${apiBase}/auth/signin`, {
+            const response = await fetch(`${API_BASE}/auth/signin`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': token
+                    'x-csrf-token': token
                 },
                 body: JSON.stringify({ usernameOrEmail: username, password })
             });
@@ -131,6 +125,76 @@ function Auth({ onAuthenticated }) {
             localStorage.setItem('username', data.user.username);
             localStorage.setItem('userRole', data.user.role);
 
+            // Re-enable the button BEFORE navigating so a failed auth-check
+            // after login doesn't leave the form permanently stuck on
+            // "Signing in..." with no way to retry.
+            setLoading(false);
+            setError('');
+            onAuthenticated();
+        } catch (err) {
+            setError('Network error. Please try again.');
+            setLoading(false);
+        }
+    };
+
+    // ------------------------------------------------------------------
+    // DEV ADMIN LOGIN — intentional bypass (keep it!)
+    // ------------------------------------------------------------------
+    // A one-click admin login for YOUR OWN machine, so you never have to
+    // fight the sign-in flow while developing. It calls POST /auth/dev-login,
+    // which is hard-disabled unless DEV_ADMIN_LOGIN=true and NODE_ENV is NOT
+    // production — so this button can never work on a real deployment.
+    //
+    // DO NOT REMOVE THIS BUTTON. It is the supported way to skip auth in
+    // dev (pair it with the .env flag, where this is documented). The
+    // backend route lives in backend/routes/auth.js as /auth/dev-login and
+    // is guarded there too — deleting either side silently breaks the other.
+    //
+    // The button only renders when the Vite dev server is running
+    // (import.meta.env.DEV) AND the backend reports the route is enabled.
+    // ------------------------------------------------------------------
+    const handleDevLogin = async () => {
+        if (loading) return;
+        setLoading(true);
+        setError('');
+        setMessage('');
+
+        try {
+            // Use cached token from state, or fetch a fresh one
+            const token = csrfToken || await fetchCSRFToken();
+            if (!token) {
+                setError('Security token not available. Please refresh the page.');
+                setLoading(false);
+                return;
+            }
+
+            const response = await fetch(`${API_BASE}/auth/dev-login`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-csrf-token': token
+                },
+                body: JSON.stringify({})
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || 'Dev admin login failed');
+                setLoading(false);
+                return;
+            }
+
+            // Save JWT tokens and user data (same shape as signin)
+            localStorage.setItem('accessToken', data.accessToken);
+            // refreshToken is an HttpOnly cookie set by the server
+            localStorage.setItem('calmstories_internal_id', data.user.internalId);
+            localStorage.setItem('username', data.user.username);
+            localStorage.setItem('userRole', data.user.role);
+
+            setLoading(false);
+            setError('');
             onAuthenticated();
         } catch (err) {
             setError('Network error. Please try again.');
@@ -152,13 +216,12 @@ function Auth({ onAuthenticated }) {
                 return;
             }
 
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-            const response = await fetch(`${apiBase}/auth/signup`, {
+            const response = await fetch(`${API_BASE}/auth/signup`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': token
+                    'x-csrf-token': token
                 },
                 body: JSON.stringify({ email, username, password })
             });
@@ -171,14 +234,17 @@ function Auth({ onAuthenticated }) {
                 return;
             }
 
-            // Auto sign in after signup
-            localStorage.setItem('accessToken', data.accessToken);
-            // refreshToken is now an HttpOnly cookie
-            localStorage.setItem('calmstories_internal_id', data.user.internalId);
-            localStorage.setItem('username', data.user.username);
-            localStorage.setItem('userRole', data.user.role);
-
-            onAuthenticated();
+            // Account created — backend requires email verification and does NOT
+            // return tokens/user. Trying to auto-login here crashes on
+            // `data.user` (undefined) and makes a successful signup look like a
+            // network failure. Instead: show the verification message and switch
+            // to sign-in, pre-filling the identifier with the registered email.
+            setLoading(false);
+            setMessage(data.message || 'Account created. Please check your email to verify your account.');
+            setMode('signin');
+            setEmail('');
+            setPassword('');
+            setUsername(data.email || email);
         } catch (err) {
             setError('Network error. Please try again.');
             setLoading(false);
@@ -200,13 +266,12 @@ function Auth({ onAuthenticated }) {
                 return;
             }
 
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-            const response = await fetch(`${apiBase}/auth/forgot-password`, {
+            const response = await fetch(`${API_BASE}/auth/forgot-password`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': token
+                    'x-csrf-token': token
                 },
                 body: JSON.stringify({ email: resetEmail })
             });
@@ -220,13 +285,10 @@ function Auth({ onAuthenticated }) {
             }
 
             setOtpSent(true);
-            setMessage('OTP sent to your email. Check console for demo OTP.');
+            // Backend already returns an honest message (in dev without SMTP it
+            // says the OTP is printed on the SERVER console — not the browser).
+            setMessage(data.message || 'OTP sent to your email.');
             setLoading(false);
-
-            // Dev mode: show OTP
-            if (data.devOtp) {
-                console.log('🔑 Password Reset OTP:', data.devOtp);
-            }
         } catch (err) {
             setError('Network error. Please try again.');
             setLoading(false);
@@ -248,13 +310,12 @@ function Auth({ onAuthenticated }) {
                 return;
             }
 
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-            const response = await fetch(`${apiBase}/auth/reset-password`, {
+            const response = await fetch(`${API_BASE}/auth/reset-password`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': token
+                    'x-csrf-token': token
                 },
                 body: JSON.stringify({ email: resetEmail, otp, newPassword })
             });
@@ -268,6 +329,7 @@ function Auth({ onAuthenticated }) {
             }
 
             setMessage('Password reset successfully! You can now sign in.');
+            setLoading(false);
             setTimeout(() => {
                 setForgotPassword(false);
                 setOtpSent(false);
@@ -281,289 +343,53 @@ function Auth({ onAuthenticated }) {
 
     if (forgotPassword) {
         return (
-            <div className="auth-container">
-                <div className="auth-card">
-                    <div className="auth-title">Reset Password</div>
-
-                    {!otpSent ? (
-                        <form onSubmit={handleForgotPassword} className="auth-form">
-                            <div className="form-group">
-                                <label>Email Address</label>
-                                <input
-                                    type="email"
-                                    value={resetEmail}
-                                    onChange={(e) => setResetEmail(e.target.value)}
-                                    placeholder="your@email.com"
-                                    required
-                                />
-                            </div>
-
-                            {error && <div className="error-message">{error}</div>}
-                            {message && <div className="success-message">{message}</div>}
-
-                            <button type="submit" className="auth-button" disabled={loading}>
-                                {loading ? 'Sending...' : 'Send OTP'}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => setForgotPassword(false)}
-                            >
-                                Back to Sign In
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleResetPassword} className="auth-form">
-                            <div className="form-group">
-                                <label>Verification Code</label>
-                                <input
-                                    type="text"
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value)}
-                                    placeholder="Enter 6-digit code"
-                                    maxLength={6}
-                                    required
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label>New Password</label>
-                                <div className="password-input-wrapper">
-                                    <input
-                                        type={showNewPassword ? "text" : "password"}
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        placeholder="At least 8 characters"
-                                        minLength={8}
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        className="password-toggle"
-                                        onClick={() => setShowNewPassword(!showNewPassword)}
-                                        aria-label="Toggle password visibility"
-                                    >
-                                        {showNewPassword ? '👁️' : '👁️‍🗨️'}
-                                    </button>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="info-button"
-                                    onClick={() => setShowPasswordRequirements(!showPasswordRequirements)}
-                                    aria-label="Show password requirements"
-                                >
-                                    ℹ️ Requirements
-                                </button>
-                                {showPasswordRequirements && (
-                                    <div className="requirements-box">
-                                        <h4>Password Requirements:</h4>
-                                        <ul>
-                                            <li>At least 8 characters long</li>
-                                            <li>At least one uppercase letter (A-Z)</li>
-                                            <li>At least one lowercase letter (a-z)</li>
-                                            <li>At least one number (0-9)</li>
-                                            <li>At least one special character (!@#$%^&*)</li>
-                                        </ul>
-                                    </div>
-                                )}
-                            </div>
-
-                            {error && <div className="error-message">{error}</div>}
-                            {message && <div className="success-message">{message}</div>}
-
-                            <button type="submit" className="auth-button" disabled={loading}>
-                                {loading ? 'Resetting...' : 'Reset Password'}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => {
-                                    setForgotPassword(false);
-                                    setOtpSent(false);
-                                }}
-                            >
-                                Back to Sign In
-                            </button>
-                        </form>
-                    )}
-                </div>
-            </div>
+            <ForgotPasswordView
+                otpSent={otpSent} resetEmail={resetEmail} setResetEmail={setResetEmail}
+                otp={otp} setOtp={setOtp} newPassword={newPassword} setNewPassword={setNewPassword}
+                showNewPassword={showNewPassword} setShowNewPassword={setShowNewPassword}
+                showPasswordRequirements={showPasswordRequirements}
+                setShowPasswordRequirements={setShowPasswordRequirements}
+                error={error} message={message} loading={loading}
+                handleForgotPassword={handleForgotPassword} handleResetPassword={handleResetPassword}
+                setForgotPassword={setForgotPassword} setOtpSent={setOtpSent}
+            />
         );
     }
 
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <div className="auth-title">Welcome to Calm Stories</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="auth-title">Welcome to Calm Stories</div>
+                    <ThemeToggle size={16} />
+                </div>
                 <div className="auth-subtitle">Thoughtful writing, mindful community</div>
 
                 {/* Pill Toggle */}
                 <div className="auth-toggle">
-                    <button
-                        type="button"
-                        className={`toggle-option ${mode === 'signin' ? 'active' : ''}`}
-                        onClick={() => {
-                            setMode('signin');
-                            setError('');
-                        }}
-                    >
-                        Sign In
-                    </button>
-                    <button
-                        type="button"
-                        className={`toggle-option ${mode === 'signup' ? 'active' : ''}`}
-                        onClick={() => {
-                            setMode('signup');
-                            setError('');
-                        }}
-                    >
-                        Sign Up
-                    </button>
+                    <button type="button" className={`toggle-option ${mode === 'signin' ? 'active' : ''}`} onClick={() => { setMode('signin'); setError(''); }}>Sign In</button>
+                    <button type="button" className={`toggle-option ${mode === 'signup' ? 'active' : ''}`} onClick={() => { setMode('signup'); setError(''); }}>Sign Up</button>
                 </div>
 
-                {/* Sign In Form */}
                 {mode === 'signin' && (
-                    <form onSubmit={handleSignIn} className="auth-form" autoComplete="on">
-                        <div className="form-group">
-                            <label>Username or Email</label>
-                            <input
-                                type="text"
-                                name="username"
-                                autoComplete="username"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                placeholder="username or email@example.com"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label>Password</label>
-                            <div className="password-input-wrapper">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
-                                    autoComplete="current-password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="password-toggle"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    aria-label="Toggle password visibility"
-                                >
-                                    {showPassword ? '👁️' : '👁️‍🗨️'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="remember-me">
-                            <label className="checkbox-label">
-                                <input
-                                    type="checkbox"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                />
-                                <span>Remember me</span>
-                            </label>
-                        </div>
-
-                        {error && <div className="error-message">{error}</div>}
-
-                        <button type="submit" className="auth-button" disabled={loading}>
-                            {loading ? 'Signing in...' : 'Sign In'}
-                        </button>
-
-                        <button
-                            type="button"
-                            className="link-button"
-                            onClick={() => setForgotPassword(true)}
-                        >
-                            Forgot password?
-                        </button>
-                    </form>
+                    <SignInForm
+                        username={username} setUsername={setUsername} password={password} setPassword={setPassword}
+                        showPassword={showPassword} setShowPassword={setShowPassword}
+                        rememberMe={rememberMe} setRememberMe={setRememberMe}
+                        error={error} message={message} loading={loading}
+                        handleSignIn={handleSignIn} handleDevLogin={handleDevLogin} setForgotPassword={setForgotPassword}
+                    />
                 )}
 
-                {/* Sign Up Form */}
                 {mode === 'signup' && (
-                    <form onSubmit={handleSignUp} className="auth-form">
-                        <div className="form-group">
-                            <label>Email Address</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="your@email.com"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label>Username</label>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                placeholder="john_doe"
-                                pattern="[a-zA-Z0-9_]{3,20}"
-                                required
-                            />
-                            <small className="input-hint">Letters, numbers, and underscore only</small>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Password</label>
-                            <div className="password-input-wrapper">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="At least 8 characters"
-                                    minLength={8}
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="password-toggle"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    aria-label="Toggle password visibility"
-                                >
-                                    {showPassword ? '👁️' : '👁️‍🗨️'}
-                                </button>
-                            </div>
-                            <button
-                                type="button"
-                                className="info-button"
-                                onClick={() => setShowPasswordRequirements(!showPasswordRequirements)}
-                                aria-label="Show password requirements"
-                            >
-                                ℹ️ Requirements
-                            </button>
-                            {showPasswordRequirements && (
-                                <div className="requirements-box">
-                                    <h4>Password Requirements:</h4>
-                                    <ul>
-                                        <li>At least 8 characters long</li>
-                                        <li>At least one uppercase letter (A-Z)</li>
-                                        <li>At least one lowercase letter (a-z)</li>
-                                        <li>At least one number (0-9)</li>
-                                        <li>At least one special character (!@#$%^&*)</li>
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-
-                        {error && <div className="error-message">{error}</div>}
-
-                        <button type="submit" className="auth-button" disabled={loading}>
-                            {loading ? 'Creating account...' : 'Create Account'}
-                        </button>
-                    </form>
+                    <SignUpForm
+                        email={email} setEmail={setEmail} username={username} setUsername={setUsername}
+                        password={password} setPassword={setPassword}
+                        showPassword={showPassword} setShowPassword={setShowPassword}
+                        showPasswordRequirements={showPasswordRequirements}
+                        setShowPasswordRequirements={setShowPasswordRequirements}
+                        error={error} loading={loading} handleSignUp={handleSignUp}
+                    />
                 )}
             </div>
         </div>

@@ -34,36 +34,37 @@ class ErrorBoundary extends React.Component {
     render() {
         if (this.state.hasError) {
             return (
-                <div style={{
-                    minHeight: '100vh',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#fefefd',
-                    fontFamily: 'Georgia, serif',
-                    padding: '2rem'
-                }}>
-                    <div style={{
-                        background: 'white',
-                        border: '1px solid #ddd',
-                        borderRadius: '8px',
+                <div className="auth-container">
+                    <div className="glass glass--strong" style={{
+                        borderRadius: 'var(--radius-lg)',
                         padding: '3rem 2.5rem',
                         maxWidth: '500px',
                         width: '100%',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
                         textAlign: 'center'
                     }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            marginBottom: '1rem',
+                            color: 'var(--amber)'
+                        }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                        </div>
                         <h1 style={{
                             fontSize: '1.75rem',
                             fontWeight: '400',
-                            color: '#222',
+                            color: 'var(--text-primary)',
+                            fontFamily: 'var(--font-serif)',
                             margin: '0 0 1rem 0'
                         }}>
                             Something went wrong
                         </h1>
                         <p style={{
-                            color: '#666',
+                            color: 'var(--text-secondary)',
                             fontSize: '1rem',
                             lineHeight: '1.6',
                             margin: '0 0 2rem 0'
@@ -72,10 +73,8 @@ class ErrorBoundary extends React.Component {
                         </p>
 
                         {process.env.NODE_ENV === 'development' && this.state.error && (
-                            <details style={{
-                                background: '#f8f9fa',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                            <details className="glass" style={{
+                                borderRadius: 'var(--radius-md)',
                                 padding: '1rem',
                                 marginBottom: '2rem',
                                 textAlign: 'left'
@@ -87,7 +86,7 @@ class ErrorBoundary extends React.Component {
                                     fontSize: '0.85rem',
                                     overflow: 'auto',
                                     margin: '0.5rem 0 0 0',
-                                    color: '#c7968c'
+                                    color: 'var(--rose)'
                                 }}>
                                     {this.state.error.toString()}
                                     {this.state.errorInfo && this.state.errorInfo.componentStack}
@@ -98,33 +97,13 @@ class ErrorBoundary extends React.Component {
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                             <button
                                 onClick={this.handleReload}
-                                style={{
-                                    padding: '0.875rem 1.5rem',
-                                    background: '#3d5a80',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '1rem',
-                                    fontFamily: 'Georgia, serif',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
-                                }}
+                                className="btn btn--primary"
                             >
                                 Refresh Page
                             </button>
                             <button
                                 onClick={this.handleGoHome}
-                                style={{
-                                    padding: '0.875rem 1.5rem',
-                                    background: 'white',
-                                    color: '#3d5a80',
-                                    border: '1px solid #3d5a80',
-                                    borderRadius: '4px',
-                                    fontSize: '1rem',
-                                    fontFamily: 'Georgia, serif',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
-                                }}
+                                className="btn btn--secondary"
                             >
                                 Go Home
                             </button>

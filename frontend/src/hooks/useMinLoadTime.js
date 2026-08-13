@@ -5,10 +5,10 @@ import { useState, useEffect, useRef } from 'react';
  * milliseconds even when the actual fetch is faster.
  *
  * @param {boolean} isLoading – the "real" loading flag from your fetch call
- * @param {number}  minMs     – minimum display time in ms (default 1000)
+ * @param {number}  minMs     – minimum display time in ms (default 650 — T0)
  * @returns {boolean}         – a derived loading flag that respects the minimum
  */
-export default function useMinLoadTime(isLoading, minMs = 1000) {
+export default function useMinLoadTime(isLoading, minMs = 650) {
     const [show, setShow] = useState(isLoading);
     const timerRef = useRef(null);
     const startRef = useRef(isLoading ? Date.now() : null);

@@ -206,10 +206,7 @@ async function requireAdmin(req, res, next) {
     try {
         // Ensure user is authenticated first
         if (!req.authenticatedUser) {
-            return res.status(401).json({
-                success: false,
-                error: 'Authentication required'
-            });
+            return requireAuth(req, res, () => requireAdmin(req, res, next));
         }
 
         // Verify user still exists and is active
@@ -263,10 +260,7 @@ async function requireModerator(req, res, next) {
     try {
         // Ensure user is authenticated first
         if (!req.authenticatedUser) {
-            return res.status(401).json({
-                success: false,
-                error: 'Authentication required'
-            });
+            return requireAuth(req, res, () => requireModerator(req, res, next));
         }
 
         // Verify user still exists and is active

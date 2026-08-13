@@ -1,0 +1,193 @@
+/* ================================================================
+   CALM WRITER — Global Design System
+   Single source of truth for colors, spacing, typography, and
+   all shared component styles. No dark mode, no themes.
+   ================================================================ */
+
+/* ────────────────────────────────────────────────────────────────
+   1. DESIGN TOKENS  (CSS Custom Properties)
+   ──────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+/* ────────────────────────────────────────────────────────────────
+   1. DESIGN TOKENS — Liquid Glass light + dark themes
+   Surfaces are translucent, frosted materials that sit above a soft
+   ambient color-field background. Dark overrides live in
+   [data-theme="dark"] on the same variable names.
+   ──────────────────────────────────────────────────────────────── */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Background — ambient gradient base */
+  --bg-page: #f4f3ef;
+  --bg-card: #ffffff;
+  --bg-subtle: #f7f7f4;
+  --bg-hover: #f1f1ec;
+  --bg-active: #eaeae4;
+
+  /* Ambient color blobs (diffused behind glass) */
+  --ambient-1: rgba(63, 138, 58, 0.42);
+  --ambient-2: rgba(43, 86, 136, 0.36);
+  --ambient-3: rgba(212, 137, 28, 0.32);
+
+  /* Text */
+  --text-primary: #2b3134;
+  --text-secondary: #55606a;
+  --text-tertiary: #9aa4ad;
+  --text-muted: #8a939c;
+
+  /* Accent — Navy (primary action) */
+  --accent: #2b5688;
+  --accent-hover: #1e4470;
+  --accent-light: #dce8f5;
+  --accent-contrast: #ffffff;
+
+  /* Accent — Sage (success / calm mode) */
+  --sage: #3f8a3a;
+  --sage-dark: #2f6d2c;
+  --sage-light: #e3f3e1;
+  --sage-contrast: #ffffff;
+
+  /* Accent — Rose (destructive) */
+  --rose: #c44b40;
+  --rose-dark: #a33830;
+  --rose-light: #fdeceb;
+  --rose-contrast: #ffffff;
+
+  /* Like — distinct from dusty rose so the heart stays vivid */
+  --like: #e03624;
+  --like-soft: rgba(224, 54, 36, 0.14);
+
+  /* Accent — Amber (bookmark active) */
+  --amber: #d4891c;
+  --amber-light: #fff3dd;
+  --amber-border: #e8b04a;
+  --amber-contrast: #3a2a10;
+
+  /* Accent — Blue (translate active) */
+  --blue-light: #e8f0fe;
+  --blue-border: #b3d7ff;
+  --blue-icon: #4facfe;
+  --blue-contrast: #ffffff;
+
+  /* Borders */
+  --border: #dcdcd7;
+  --border-dark: #c2c2bb;
+
+  /* Shadows — soft, diffuse, layered */
+  --shadow-xs: 0 1px 2px rgba(30, 34, 38, 0.05), 0 4px 12px rgba(30, 34, 38, 0.04);
+  --shadow-sm: 0 2px 6px rgba(30, 34, 38, 0.06), 0 8px 20px rgba(30, 34, 38, 0.06);
+  --shadow-md: 0 4px 14px rgba(30, 34, 38, 0.08), 0 16px 40px rgba(30, 34, 38, 0.10);
+
+  /* Liquid Glass material */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.90);
+  --glass-bg-hover: rgba(255, 255, 255, 0.84);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-border-dark: rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(16px) saturate(140%);
+  --glass-shadow: 0 8px 32px rgba(30, 34, 38, 0.12), 0 2px 8px rgba(30, 34, 38, 0.06);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --overlay-scrim: rgba(30, 36, 42, 0.35);
+
+  /* Spacing scale */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Border radii — rounder, concentric (Liquid Glass curvature) */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --radius-full: 50%;
+
+  /* Typography — fluid type scale */
+  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.78em;
+  --fs-sm: 0.88em;
+  --fs-base: 1em;
+  --fs-md: 1.05em;
+  --fs-lg: 1.15em;
+  --fs-xl: clamp(1.3em, 1.2em + 0.3vw, 1.5em);
+  --fs-2xl: clamp(1.6em, 1.4em + 0.6vw, 2em);
+  --fs-3xl: clamp(2em, 1.7em + 1vw, 2.6em);
+  --lh-tight: 1.4;
+  --lh-base: 1.6;
+  --lh-loose: 1.75;
+
+  /* Transitions — fluid motion */
+  --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: all 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-page: #121417;
+  --bg-card: #1c1f24;
+  --bg-subtle: #1e2227;
+  --bg-hover: #242930;
+  --bg-active: #2b313a;
+
+  --ambient-1: rgba(90, 170, 80, 0.34);
+  --ambient-2: rgba(80, 130, 200, 0.32);
+  --ambient-3: rgba(210, 150, 50, 0.28);
+
+  --text-primary: #eceff1;
+  --text-secondary: #b3bcc5;
+  --text-tertiary: #6f7882;
+  --text-muted: #5c656e;
+
+  --accent: #4f8fd4;
+  --accent-hover: #6aa3e0;
+  --accent-light: #1c3048;
+  --accent-contrast: #f4f8fc;
+
+  --sage: #62b85a;
+  --sage-dark: #7cc874;
+  --sage-light: #1c321b;
+  --sage-contrast: #f3faf2;
+
+  --rose: #e0564a;
+  --rose-dark: #ef6d62;
+  --rose-light: #3a1c1a;
+  --rose-contrast: #fff6f5;
+
+  --like: #ff4d3a;
+  --like-soft: rgba(255, 77, 58, 0.18);
+
+  --amber: #e8a83a;
+  --amber-light: #3a2e16;
+  --amber-border: #8a6a28;
+  --amber-contrast: #1a1408; /* dark text on gold — keep high contrast */
+
+  --blue-light: #1e2f41;
+  --blue-border: #33506b;
+  --blue-icon: #4d8ec8;
+  --blue-contrast: #f4f8fc;
+
+  --border: #2a2f36;
+  --border-dark: #3a424c;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.32), 0 8px 20px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.36), 0 16px 40px rgba(0, 0, 0, 0.34);
+
+  --glass-bg: rgba(24, 28, 34, 0.78);
+  --glass-bg-strong: rgba(22, 26, 32, 0.90);
+  --glass-bg-hover: rgba(34, 40, 48, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-border-dark: rgba(255, 255, 255, 0.16);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.50), 0 2px 8px rgba(0, 0, 0, 0.30);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --overlay-scrim: rgba(0, 0, 0, 0.55);
+}

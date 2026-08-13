@@ -1,280 +1,214 @@
-import React, { useState, useEffect } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-
-function getAuthHeaders(contentType = 'application/json') {
-    const headers = {};
-
-    if (contentType) {
-        headers['Content-Type'] = contentType;
-    }
-
-    const accessToken = localStorage.getItem('accessToken');
-    if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-
-    return headers;
-}
+import { API_BASE, authenticatedFetch, getAuthHeaders } from './client';
 
 export async function checkHubEligibility() {
-    const resp = await fetch(`${API_BASE}/hubs/check-eligibility`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/check-eligibility`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
 export async function createHub(hubData) {
-    const resp = await fetch(`${API_BASE}/hubs/create`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/create`, {
         method: 'POST',
-        headers: getAuthHeaders('application/json'),
+        headers: getAuthHeaders(),
         body: JSON.stringify(hubData),
     });
     return await resp.json();
 }
 
-export async function fetchHubs(filters = {}) {
+export async function fetchHubs(visibility = '', theme = '', page = 1, limit = 20) {
     const params = new URLSearchParams({
-        visibility: filters.visibility || 'public',
-        page: filters.page || 1,
-        limit: filters.limit || 20
+        page: page.toString(),
+        limit: limit.toString(),
     });
-    if (filters.theme && filters.theme !== 'all') params.append('theme', filters.theme);
-
-    const resp = await fetch(`${API_BASE}/hubs?${params.toString()}`, {
+    if (visibility) params.append('visibility', visibility);
+    if (theme) params.append('theme', theme);
+    const resp = await authenticatedFetch(`${API_BASE}/hubs?${params.toString()}`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
 export async function fetchMyHubs() {
-    const resp = await fetch(`${API_BASE}/hubs/my-hubs`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/my-hubs`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
 export async function fetchHubDetails(hubId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
 export async function updateHub(hubId, updates) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/update`, {
         method: 'PATCH',
-        headers: getAuthHeaders('application/json'),
+        headers: getAuthHeaders(),
         body: JSON.stringify(updates),
     });
     return await resp.json();
 }
 
-export async function archiveHub(hubId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/archive`, {
+export async function deleteHub(hubId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-// Membership
-export async function inviteToHub(hubId, inviteData) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/invite`, {
+export async function sendHubInvite(hubId, username) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/invite`, {
         method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify(inviteData),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ username }),
     });
     return await resp.json();
 }
 
-export async function requestJoinHub(hubId, message) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/join-request`, {
+export async function requestJoinHub(hubId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/request-join`, {
         method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ message }),
+        headers: getAuthHeaders(),
     });
     return await resp.json();
 }
 
-export async function joinViaInvite(hubId, inviteToken) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/join-via-invite`, {
+export async function respondToInvite(inviteId, accept) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/invites/${inviteId}/respond`, {
         method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ inviteToken }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ accept }),
     });
     return await resp.json();
 }
 
-export async function fetchJoinRequests(hubId, status = 'pending') {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/join-requests?status=${status}`, {
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-export async function approveJoinRequest(hubId, requestId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/join-requests/${requestId}/approve`, {
+export async function approveJoinRequest(hubId, requestId, approve) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/requests/${requestId}`, {
         method: 'POST',
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-export async function rejectJoinRequest(hubId, requestId, reason) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/join-requests/${requestId}/reject`, {
-        method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ reason }),
-    });
-    return await resp.json();
-}
-
-export async function removeMember(hubId, userId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/members/${userId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-export async function updateMemberRole(hubId, userId, role) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/members/${userId}/role`, {
-        method: 'PATCH',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ role }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ approve }),
     });
     return await resp.json();
 }
 
 export async function leaveHub(hubId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/leave`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/leave`, {
         method: 'POST',
+        headers: getAuthHeaders(),
+    });
+    return await resp.json();
+}
+
+export async function removeHubMember(hubId, userInternalId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/remove-member`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ userInternalId }),
+    });
+    return await resp.json();
+}
+
+export async function updateMemberRole(hubId, userInternalId, newRole) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/update-role`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ userInternalId, newRole }),
+    });
+    return await resp.json();
+}
+
+export async function fetchHubInvites() {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/my-invites`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-// Content
-export async function submitHubStory(hubId, storyData) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/stories/submit`, {
-        method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify(storyData),
+export async function fetchHubMembers(hubId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/members`, {
+        headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-export async function fetchHubStories(hubId, options = {}) {
+export async function fetchPendingRequests(hubId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/pending-requests`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function fetchHubStories(hubId, page = 1, limit = 10) {
     const params = new URLSearchParams({
-        page: options.page || 1,
-        limit: options.limit || 10,
-        sort: options.sort || 'latest'
+        page: page.toString(),
+        limit: limit.toString(),
     });
-
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/stories?${params.toString()}`, {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/stories?${params.toString()}`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-export async function approveHubStory(hubId, storyId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/stories/${storyId}/approve`, {
+export async function createHubStory(hubId, title, text) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/stories`, {
         method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title, text }),
+    });
+    return await resp.json();
+}
+
+export async function fetchHubChat(hubId, limit = 50, before = null) {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (before) params.append('before', before);
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/chat?${params.toString()}`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-export async function rejectHubStory(hubId, storyId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/stories/${storyId}/reject`, {
+export async function postHubChatMessage(hubId, message) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/chat`, {
         method: 'POST',
-        headers: getAuthHeaders(null),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ message }),
     });
     return await resp.json();
 }
 
-export async function fetchPendingStories(hubId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/stories/pending`, {
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-// Chat
-export async function fetchHubChat(hubId, options = {}) {
-    const params = new URLSearchParams({ limit: options.limit || 50 });
-    if (options.before) params.append('before', options.before);
-
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/chat?${params.toString()}`, {
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-export async function postHubChatMessage(hubId, message, replyTo = null) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/chat`, {
-        method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ message, replyTo }),
-    });
-    return await resp.json();
-}
-
-export async function pinChatMessage(hubId, messageId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/chat/${messageId}/pin`, {
-        method: 'POST',
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-export async function unpinChatMessage(hubId, messageId) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/chat/${messageId}/pin`, {
+export async function deleteHubChatMessage(hubId, messageId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/chat/${messageId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-export async function reactToChatMessage(hubId, messageId, emoji) {
-    const resp = await fetch(`${API_BASE}/hubs/${hubId}/chat/${messageId}/react`, {
+export async function applyForHubCreator(essay, motivation) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/apply-creator`, {
         method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ emoji }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ essay, motivation }),
     });
     return await resp.json();
 }
 
-// Applications
-export async function applyForCreator(applicationData) {
-    const resp = await fetch(`${API_BASE}/hubs/apply-creator`, {
-        method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify(applicationData),
-    });
-    return await resp.json();
-}
-
-export async function fetchMyApplication() {
-    const resp = await fetch(`${API_BASE}/hubs/my-application`, {
+export async function fetchHubCreatorApplications(status = 'pending') {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/creator-applications?status=${status}`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();
 }
 
-export async function fetchCreatorApplications(status = 'pending') {
-    const resp = await fetch(`${API_BASE}/hubs/creator-applications?status=${status}`, {
-        headers: getAuthHeaders(null),
-    });
-    return await resp.json();
-}
-
-export async function reviewCreatorApplication(id, decision, notes) {
-    const resp = await fetch(`${API_BASE}/hubs/creator-applications/${id}/review`, {
+export async function reviewHubCreatorApplication(applicationId, decision, notes) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/review-creator-application`, {
         method: 'POST',
-        headers: getAuthHeaders('application/json'),
-        body: JSON.stringify({ decision, notes }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ applicationId, decision, notes }),
     });
     return await resp.json();
 }

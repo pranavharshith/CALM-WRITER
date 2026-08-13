@@ -6,7 +6,7 @@ import useMinLoadTime from '../hooks/useMinLoadTime';
 export default function PrivateArchive({ onBack, user }) {
   const [stories, setStories] = useState([]);
   const [rawLoading, setRawLoading] = useState(true);
-  const loading = useMinLoadTime(rawLoading, 1000);
+  const loading = useMinLoadTime(rawLoading);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function PrivateArchive({ onBack, user }) {
     try {
       setRawLoading(true);
       const userStories = await fetchUserStories();
-      setStories(userStories);
+      setStories(Array.isArray(userStories) ? userStories : (userStories.stories || []));
     } catch (err) {
       setError('Failed to load your stories');
       console.error('Failed to fetch user stories:', err);
@@ -38,10 +38,10 @@ export default function PrivateArchive({ onBack, user }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#fefefd',
+        background: 'transparent',
         padding: '20px'
       }}>
-        <div style={{ color: '#d44', marginBottom: '20px' }}>{error}</div>
+        <div style={{ color: 'var(--rose-dark)', marginBottom: '20px' }}>{error}</div>
         <button onClick={onBack} style={{ padding: '10px 20px' }}>Back</button>
       </div>
     );
@@ -50,7 +50,7 @@ export default function PrivateArchive({ onBack, user }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#fefefd',
+      background: 'transparent',
       padding: '20px'
     }}>
       <div style={{ maxWidth: '620px', margin: '0 auto' }}>
@@ -59,7 +59,7 @@ export default function PrivateArchive({ onBack, user }) {
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#666',
+            color: 'var(--text-secondary)',
             fontSize: '0.9em',
             cursor: 'pointer',
             marginBottom: '30px'
@@ -95,14 +95,14 @@ export default function PrivateArchive({ onBack, user }) {
               <div
                 key={story._id}
                 style={{
-                  background: '#faf9f8',
-                  borderRadius: 8,
+                  background: 'var(--bg-subtle)',
+                  borderRadius: 'var(--radius-md)',
                   padding: 24,
-                  boxShadow: '0 1px 4px #eee'
+                  boxShadow: 'var(--shadow-sm)'
                 }}>
                 <div style={{
                   fontSize: '0.9em',
-                  color: '#999',
+                  color: 'var(--text-tertiary)',
                   marginBottom: 12
                 }}>
                   Written {new Date(story.createdAt).toLocaleDateString('en-US', {
@@ -117,9 +117,9 @@ export default function PrivateArchive({ onBack, user }) {
                   whiteSpace: 'pre-wrap',
                   lineHeight: '1.6',
                   fontSize: '1.1em',
-                  color: '#333'
+                  color: 'var(--text-primary)'
                 }}>
-                  {story.text}
+                  {story.text || story.preview || 'No preview available.'}
                 </div>
               </div>
             ))}

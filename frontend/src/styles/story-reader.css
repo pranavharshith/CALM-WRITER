@@ -1,0 +1,128 @@
+/* ────────────────────────────────────────────────────────────────
+   13. STORY READER
+   ──────────────────────────────────────────────────────────────── */
+.reader {
+  min-height: 100vh;
+  background: var(--bg-page);
+  padding: var(--sp-5);
+}
+
+.reader__inner {
+  max-width: 660px;
+  margin: 0 auto;
+}
+
+.reader__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-5);
+}
+
+.reader__actions {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.reader__translate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2);
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.reader__translate-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.reader__translate-btn--active {
+  background: var(--blue-light);
+  border: 1px solid var(--blue-border);
+}
+
+.reader__speech-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2);
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  transition: var(--transition);
+}
+
+.reader__speech-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.reader__speech-btn--active {
+  background: var(--amber-light);
+  border: 1px solid var(--amber-border);
+  color: var(--amber);
+}
+
+.reader__translation-error {
+  font-size: 12px;
+  color: var(--rose);
+  margin-right: var(--sp-1);
+}
+
+.reader__edit-btn {
+  padding: 6px var(--sp-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reader__edit-btn:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+  border-color: var(--glass-border-dark);
+}
+
+.reader__content {
+  height: 70vh;
+  overflow-y: auto;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  padding: var(--sp-8);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  border: 1px solid var(--glass-border);
+}
+
+.reader__translating {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.reader__skeleton-line {
+  height: 1em;
+  background: var(--bg-active);
+  margin: var(--sp-2) 0;
+  border-radius: var(--radius-sm);
+}
+
+.reader__no-story {
+  padding: var(--sp-10);
+  text-align: center;
+}

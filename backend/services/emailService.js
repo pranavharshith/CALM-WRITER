@@ -1,5 +1,8 @@
 const nodemailer = require('nodemailer');
 
+// Accept either SMTP_PASS or SMTP_PASSWORD for the SMTP password
+const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+
 // Create reusable transporter using SMTP
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -7,7 +10,7 @@ const transporter = nodemailer.createTransport({
     secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
     auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD
+        pass: smtpPass
     }
 });
 
@@ -30,7 +33,7 @@ transporter.verify(function (error, success) {
 async function sendOTPEmail(email, otp) {
     try {
         // Check if SMTP is configured
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        if (!process.env.SMTP_USER || !smtpPass) {
             console.log(`[OTP] Email service not configured. OTP will be sent via console in development.`);
             return false;
         }
@@ -114,7 +117,7 @@ async function sendOTPEmail(email, otp) {
                             <div class="otp-box">
                                 <div style="color: #6c757d; font-size: 14px; margin-bottom: 10px;">Your OTP Code</div>
                                 <div class="otp-code">${otp}</div>
-                                <div style="color: #6c757d; font-size: 12px; margin-top: 10px;">Valid for 10 minutes</div>
+                                <div style="color: #6c757d; font-size: 12px; margin-top: 10px;">Valid for 15 minutes</div>
                             </div>
                             <p style="color: #555; line-height: 1.6;">
                                 Enter this code in the password reset form to set a new password.
@@ -138,7 +141,7 @@ You requested to reset your password. Use the OTP code below to complete the pro
 
 Your OTP Code: ${otp}
 
-This code is valid for 10 minutes.
+This code is valid for 15 minutes.
 
 If you didn't request this, please ignore this email. Your password will remain unchanged.
 
@@ -166,7 +169,7 @@ This is an automated message from Calm Writer.
  */
 async function sendWelcomeEmail(email, username) {
     try {
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        if (!process.env.SMTP_USER || !smtpPass) {
             return false;
         }
 
@@ -222,7 +225,7 @@ async function sendWelcomeEmail(email, username) {
  */
 function initializeEmailService() {
     try {
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        if (!process.env.SMTP_USER || !smtpPass) {
             console.warn('⚠ SMTP credentials not configured');
             return false;
         }
@@ -251,7 +254,7 @@ function initializeEmailService() {
  */
 async function sendVerificationEmail(email, token) {
     try {
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        if (!process.env.SMTP_USER || !smtpPass) {
             console.log(`[VERIFY] Email service not configured. Token for ${email}: ${token}`);
             return false;
         }

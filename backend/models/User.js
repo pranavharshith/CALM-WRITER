@@ -30,6 +30,7 @@ const UserSchema = new mongoose.Schema({
   // Trusted User tracking
   trustedUserPromotedAt: { type: Date },
   canTagContent: { type: Boolean, default: false },
+  canCreateHubs: { type: Boolean, default: false }, // approved hub creator
 
   // Timeout system
   timeoutUntil: { type: Date },

@@ -126,19 +126,19 @@ export default function AnalyticsDashboard({ onBack }) {
                             <AreaChart data={dailyStats}>
                                 <defs>
                                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3d5a80" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#3d5a80" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
                                     </linearGradient>
                                     <linearGradient id="colorReads" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#7d9d74" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#7d9d74" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="var(--sage-dark)" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="var(--sage-dark)" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                                 <XAxis
                                     dataKey="_id"
-                                    tick={{ fontSize: 12, fill: '#666' }}
-                                    axisLine={{ stroke: '#eee' }}
+                                    tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }}
+                                    axisLine={{ stroke: 'var(--border)' }}
                                     tickLine={false}
                                     tickFormatter={(str) => {
                                         const date = new Date(str);
@@ -146,19 +146,19 @@ export default function AnalyticsDashboard({ onBack }) {
                                     }}
                                 />
                                 <YAxis
-                                    tick={{ fontSize: 12, fill: '#666' }}
+                                    tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }}
                                     axisLine={false}
                                     tickLine={false}
                                 />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: 'var(--shadow-md)' }}
                                 />
                                 <Legend />
                                 <Area
                                     type="monotone"
                                     dataKey="views"
                                     name="Views"
-                                    stroke="#3d5a80"
+                                    stroke="var(--accent)"
                                     fillOpacity={1}
                                     fill="url(#colorViews)"
                                     strokeWidth={2}
@@ -167,7 +167,7 @@ export default function AnalyticsDashboard({ onBack }) {
                                     type="monotone"
                                     dataKey="reads"
                                     name="Reads"
-                                    stroke="#7d9d74"
+                                    stroke="var(--sage-dark)"
                                     fillOpacity={1}
                                     fill="url(#colorReads)"
                                     strokeWidth={2}

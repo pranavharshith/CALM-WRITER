@@ -1,0 +1,9 @@
+- generic [ref=f9e150]:
+  - generic [ref=f9e151]:
+    - button "Back" [ref=f9e152] [cursor=pointer]
+    - generic [ref=f9e155]:
+      - button "Translate Story" [ref=f9e156] [cursor=pointer]
+      - button "Read Story Aloud" [ref=f9e162] [cursor=pointer]
+      - button "1" [pressed] [ref=f9e166] [cursor=pointer]
+      - button "Share" [ref=f9e172] [cursor=pointer]
+  - generic [ref=f9e179]: hi bro . when i gedt older

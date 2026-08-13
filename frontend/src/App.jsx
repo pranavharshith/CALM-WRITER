@@ -1,12 +1,10 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { fetchCurrentUser, fetchStoryById } from './api/api';
+import { fetchCurrentUser } from './api/api';
 import {
   AppSplashSkeleton,
   SkeletonStoryReader,
-  SkeletonFeedCards,
-  SkeletonLeaderboard,
   SkeletonProfile,
   SkeletonNotifications,
   SkeletonThreadView,
@@ -15,210 +13,33 @@ import {
   SkeletonHubsPage,
   SkeletonStoryList,
   SkeletonFollowRow,
-  SkeletonHubCard
+  SkeletonHubDetail
 } from './components/SkeletonLoader';
-import useMinLoadTime from './hooks/useMinLoadTime';
-import { cacheHas, cacheGet, cachePut } from './utils/screenCache';
+import ToastProvider from './components/ToastProvider';
 
-// Lazy load all page components
 const Auth = React.lazy(() => import('./components/Auth'));
 const UsernameSetup = React.lazy(() => import('./components/UsernameSetup'));
 const CommunityFeed = React.lazy(() => import('./components/CommunityFeed'));
-const StoryReader = React.lazy(() => import('./components/StoryReader'));
 const WriteScreen = React.lazy(() => import('./components/WriteScreen'));
 const PrivateArchive = React.lazy(() => import('./components/PrivateArchive'));
-const UserProfile = React.lazy(() => import('./components/UserProfile'));
-const ThreadView = React.lazy(() => import('./components/ThreadView'));
 const ModerationDashboard = React.lazy(() => import('./components/ModerationDashboard'));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
 const Bookmarks = React.lazy(() => import('./components/Bookmarks'));
 const MyStories = React.lazy(() => import('./components/MyStories'));
-const FollowingPage = React.lazy(() => import('./components/FollowingPage'));
-const UserStories = React.lazy(() => import('./components/UserStories'));
 const CollaborativeHubs = React.lazy(() => import('./components/CollaborativeHubs'));
-const HubDetail = React.lazy(() => import('./components/HubDetail'));
 const HubCreation = React.lazy(() => import('./components/HubCreation'));
 const Settings = React.lazy(() => import('./components/Settings'));
 const Notifications = React.lazy(() => import('./components/Notifications'));
 const VerifyEmail = React.lazy(() => import('./components/VerifyEmail'));
 const AnalyticsDashboard = React.lazy(() => import('./components/AnalyticsDashboard'));
+const Leaderboards = React.lazy(() => import('./components/Leaderboards'));
 
-// Wrapper components for routes that need params
-function StoryReaderRoute() {
-  const { storyId } = useParams();
-  const navigate = useNavigate();
-  const [story, setStory] = useState(null);
-  const [rawLoading, setRawLoading] = useState(true);
-
-  // Always show skeleton for at least 1 second
-  const loading = useMinLoadTime(rawLoading, 1000);
-
-  useEffect(() => {
-    const loadStory = async () => {
-      const cacheKey = `story:${storyId}`;
-
-      // Use cached story (e.g. when coming back from deep page)
-      if (cacheHas(cacheKey)) {
-        setStory(cacheGet(cacheKey));
-        setRawLoading(false);
-        return;
-      }
-
-      try {
-        const storyData = await fetchStoryById(storyId);
-        setStory(storyData);
-        if (storyData) cachePut(cacheKey, storyData);
-      } catch (error) {
-        console.error('Failed to load story:', error);
-      } finally {
-        setRawLoading(false);
-      }
-    };
-    loadStory();
-  }, [storyId]);
-
-  const handleLike = (storyId, updates) => {
-    setStory(prevStory => ({
-      ...prevStory,
-      likes: updates.likes,
-      isLikedByUser: updates.isLikedByUser
-    }));
-  };
-
-  const handleBack = () => navigate(-1);
-
-  if (loading) return <SkeletonStoryReader />;
-  if (!story) return <div style={{ padding: '20px' }}>Story not found</div>;
-
-  return <StoryReader story={story} onBack={handleBack} onLike={handleLike} />;
-}
-
-function UserProfileRoute() {
-  const { username } = useParams();
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await fetchCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user:', error);
-      }
-    };
-    loadUser();
-  }, []);
-
-  return (
-    <UserProfile
-      username={username}
-      onBack={() => navigate('/community')}
-      onReadStory={(story) => navigate(`/story/${story._id}`)}
-      currentUser={user}
-      onLogout={() => {
-        localStorage.removeItem('calmstories_user');
-        localStorage.removeItem('calmstories_internal_id');
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('translation_')) localStorage.removeItem(key);
-        });
-        navigate('/login');
-      }}
-      onViewBookmarks={() => navigate('/bookmarks')}
-      onViewMyStories={() => navigate('/my-stories')}
-      onViewFollowing={(username) => navigate(`/following/${username}`)}
-      onViewUserStories={(username) => navigate(`/user/${username}/stories`)}
-    />
-  );
-}
-
-function ThreadViewRoute() {
-  const { storyId } = useParams();
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await fetchCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user:', error);
-      }
-    };
-    loadUser();
-  }, []);
-
-  return <ThreadView storyId={storyId} user={user} onBack={() => navigate(-1)} />;
-}
-
-function FollowingPageRoute() {
-  const { username } = useParams();
-  const navigate = useNavigate();
-
-  return (
-    <FollowingPage
-      username={username}
-      onBack={() => navigate(-1)}
-      onProfile={(username) => navigate(`/profile/${username}`)}
-    />
-  );
-}
-
-function UserStoriesRoute() {
-  const { username } = useParams();
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await fetchCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user:', error);
-      }
-    };
-    loadUser();
-  }, []);
-
-  return (
-    <UserStories
-      username={username}
-      onBack={() => navigate(-1)}
-      onReadStory={(story) => navigate(`/story/${story._id}`)}
-      onProfile={(username) => navigate(`/profile/${username}`)}
-      currentUser={user}
-    />
-  );
-}
-
-function HubDetailRoute() {
-  const { hubId } = useParams();
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await fetchCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Failed to load user:', error);
-      }
-    };
-    loadUser();
-  }, []);
-
-  return (
-    <HubDetail
-      hubId={hubId}
-      onBack={() => navigate(-1)}
-      onReadStory={(story) => navigate(`/story/${story._id}`)}
-      user={user}
-    />
-  );
-}
+const StoryReaderRoute = React.lazy(() => import('./routes/StoryReaderRoute'));
+const UserProfileRoute = React.lazy(() => import('./routes/UserProfileRoute'));
+const ThreadViewRoute = React.lazy(() => import('./routes/ThreadViewRoute'));
+const FollowingPageRoute = React.lazy(() => import('./routes/FollowingPageRoute'));
+const UserStoriesRoute = React.lazy(() => import('./routes/UserStoriesRoute'));
+const HubDetailRoute = React.lazy(() => import('./routes/HubDetailRoute'));
 
 function AppContent() {
   const navigate = useNavigate();
@@ -234,9 +55,24 @@ function AppContent() {
       setAuthReady(true);
       navigate('/login');
     };
+    // Fired after email verification auto-login so App reloads the user state
+    // without a full page refresh.
+    const handleAuthLogin = () => {
+      checkAuthStatus();
+    };
     window.addEventListener('auth:logout', handleAuthLogout);
-    return () => window.removeEventListener('auth:logout', handleAuthLogout);
+    window.addEventListener('auth:login', handleAuthLogin);
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout);
+      window.removeEventListener('auth:login', handleAuthLogin);
+    };
   }, []);
+
+  // Pages that must be reachable without an authenticated session
+  const isPublicAuthPath = () => {
+    const path = window.location.pathname;
+    return ['/login', '/verify-email'].includes(path);
+  };
 
   const checkAuthStatus = async () => {
     try {
@@ -259,20 +95,22 @@ function AppContent() {
           if (!localStorage.getItem('accessToken')) {
             localStorage.removeItem('calmstories_internal_id');
             setAuthReady(true);
-            navigate('/login');
+            if (!isPublicAuthPath()) navigate('/login');
           } else {
             setAuthReady(true);
           }
         }
       } else {
         setAuthReady(true);
-        navigate('/login');
+        // Don't redirect off the email-verification (or login) page — a user
+        // clicking a verification link has no session yet.
+        if (!isPublicAuthPath()) navigate('/login');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       if (!localStorage.getItem('accessToken')) {
         setAuthReady(true);
-        navigate('/login');
+        if (!isPublicAuthPath()) navigate('/login');
       } else {
         setAuthReady(true);
       }
@@ -299,14 +137,14 @@ function AppContent() {
   );
 
   return (
-    <div style={{ fontFamily: 'Georgia, serif', background: '#fefefd', minHeight: '100vh' }}>
+    <div className="app-shell" style={{ fontFamily: 'var(--font-sans)', background: 'transparent', minHeight: '100vh' }}>
       {error && (
-        <div style={{
+        <div className="toast" style={{
           position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
-          background: '#f8d7da', color: '#721c24', padding: '10px 20px', borderRadius: '4px', zIndex: 1000
+          background: 'var(--rose-light)', color: 'var(--rose-dark)', zIndex: 1200
         }}>
           {error}
-          <button onClick={() => setError('')} style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+          <button onClick={() => setError('')} style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>×</button>
         </div>
       )}
 
@@ -344,6 +182,11 @@ function AppContent() {
                 onSettings={() => navigate('/settings')}
                 onNotifications={() => navigate('/notifications')}
                 onAnalytics={() => navigate('/analytics')}
+                onLeaderboards={() => navigate('/leaderboards')}
+                onWritePrompt={(prompt) => {
+                  localStorage.setItem('calmstories_write_prompt', JSON.stringify(prompt));
+                  navigate('/write');
+                }}
               />
             </Suspense>
           ) : (
@@ -433,7 +276,7 @@ function AppContent() {
         } />
 
         <Route path="/hubs/:hubId" element={
-          <Suspense fallback={<div style={{ padding: 20 }}><SkeletonHubCard /></div>}>
+          <Suspense fallback={<SkeletonHubDetail />}>
             <HubDetailRoute />
           </Suspense>
         } />
@@ -443,8 +286,6 @@ function AppContent() {
           <Suspense fallback={<SkeletonSettings />}>
             <Settings
               onBack={() => navigate('/community')}
-              user={user}
-              setUser={setUser}
             />
           </Suspense>
         } />
@@ -461,16 +302,23 @@ function AppContent() {
 
         {/* Analytics Route */}
         <Route path="/analytics" element={
-          <Suspense fallback={<div style={{ minHeight: '100vh', background: '#fefefd' }} />}>
+          <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
             <AnalyticsDashboard onBack={() => navigate('/community')} />
+          </Suspense>
+        } />
+
+        {/* Leaderboards Route */}
+        <Route path="/leaderboards" element={
+          <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
+            <Leaderboards onBack={() => navigate('/community')} />
           </Suspense>
         } />
 
         <Route path="/admin" element={
           !authReady ? (
-            <div style={{ minHeight: '100vh', background: '#0d1117' }} />
+            <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />
           ) : user && user.role === 'admin' ? (
-            <Suspense fallback={<div style={{ minHeight: '100vh', background: '#0d1117' }} />}>
+            <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
               <AdminDashboard
                 user={user}
                 onBack={() => navigate('/community')}
@@ -482,12 +330,18 @@ function AppContent() {
         } />
 
         <Route path="/moderation" element={
-          <Suspense fallback={<div style={{ minHeight: '100vh', background: '#fefefd' }} />}>
-            <ModerationDashboard
-              user={user}
-              onBack={() => navigate('/community')}
-            />
-          </Suspense>
+          !authReady ? (
+            <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />
+          ) : user && ['admin', 'moderator'].includes(user.role) ? (
+            <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
+              <ModerationDashboard
+                user={user}
+                onBack={() => navigate('/community')}
+              />
+            </Suspense>
+          ) : (
+            <Navigate to="/community" replace />
+          )
         } />
 
         <Route path="/private-archive" element={
@@ -509,7 +363,9 @@ export default function App() {
   return (
     <HelmetProvider>
       <BrowserRouter>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </BrowserRouter>
     </HelmetProvider>
   );

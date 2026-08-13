@@ -1,0 +1,298 @@
+/* ────────────────────────────────────────────────────────────────
+   4. BUTTONS
+   ──────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--sp-2) var(--sp-5);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: 0 4px 16px -6px var(--accent);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px -8px var(--accent);
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn--secondary {
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-inset);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-dark);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.btn--danger {
+  background: var(--rose);
+  color: var(--rose-contrast);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--rose-dark);
+}
+
+.btn--positive {
+  background: var(--sage);
+  color: var(--sage-contrast);
+}
+
+.btn--positive:hover:not(:disabled) {
+  background: var(--sage-dark);
+}
+
+/* Icon buttons — small, circular, glass on hover */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--text-primary);
+}
+
+.btn-icon--active {
+  background: var(--blue-light) !important;
+  border: 1px solid var(--blue-border) !important;
+  color: var(--blue-icon) !important;
+}
+
+.btn-icon--speech-active {
+  background: var(--amber-light) !important;
+  border: 1px solid var(--amber-border) !important;
+  color: var(--amber) !important;
+}
+
+.btn-back {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: 0;
+  transition: var(--transition);
+}
+
+.btn-back:hover {
+  color: var(--text-primary);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   5. FORMS
+   ──────────────────────────────────────────────────────────────── */
+.form-group {
+  margin-bottom: var(--sp-5);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  color-scheme: inherit;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--text-primary);
+  box-shadow: var(--glass-inset);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--glass-bg-strong);
+  box-shadow: 0 0 0 3px rgba(61, 90, 128, 0.14), var(--glass-inset);
+}
+
+.form-textarea {
+  resize: none;
+  line-height: var(--lh-loose);
+}
+
+/* The seamless "ghost" textarea used in the writer */
+.form-textarea--ghost {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  outline: none;
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-loose);
+  color: var(--text-primary);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   6. CARD
+   ──────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   7. ALERTS / FEEDBACK
+   ──────────────────────────────────────────────────────────────── */
+.alert {
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+
+.alert--success {
+  background: #d4edda;
+  border: 1px solid var(--sage);
+  color: #155724;
+}
+
+.alert--error {
+  background: #fdecea;
+  border: 1px solid #e57373;
+  color: #b71c1c;
+}
+
+.alert--info {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   8. TOGGLE SWITCH (pure CSS) — Liquid Glass knob
+   ──────────────────────────────────────────────────────────────── */
+.toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.toggle-label input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.toggle-label input:checked+.toggle-track {
+  background: var(--sage);
+  border-color: transparent;
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  bottom: 2px;
+  left: 2px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.toggle-label input:checked+.toggle-track::after {
+  transform: translateX(22px);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   9. SKELETON / SHIMMER
+   ──────────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -600px 0;
+  }
+
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--bg-active) 25%, var(--bg-hover) 50%, var(--bg-active) 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  display: block;
+}

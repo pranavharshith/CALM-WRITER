@@ -80,7 +80,8 @@ router.get('/check/:storyId', requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      isBookmarked: !!bookmark
+      isBookmarked: !!bookmark,
+      bookmarked: !!bookmark
     });
   } catch (error) {
     console.error('Bookmark check error:', error);
@@ -122,7 +123,7 @@ router.get('/', requireAuth, async (req, res) => {
           _id: story._id,
           title: story.title,
           text: story.text,
-          preview: story.text.substring(0, 200) + (story.text.length > 200 ? '...' : ''),
+          preview: (story.text || '').substring(0, 200) + ((story.text || '').length > 200 ? '...' : ''),
           wordCount: story.wordCount,
           likes: story.likes,
           likedBy: story.likedBy,

@@ -3,7 +3,7 @@ const router = express.Router();
 const CollaborativeHub = require('../models/CollaborativeHub');
 const HubChat = require('../models/HubChat');
 const User = require('../models/User');
-const { requireAuth } = require('../middleware/auth-consolidated');
+const { requireAuth, optionalAuth } = require('../middleware/auth-consolidated');
 
 // Helper: Check if user is hub member
 function isHubMember(hub, userInternalId) {
@@ -17,7 +17,7 @@ function isHubModerator(hub, userInternalId) {
 }
 
 // GET /hubs/:hubId/chat - Get chat messages
-router.get('/:hubId/chat', requireAuth, async (req, res) => {
+router.get('/:hubId/chat', optionalAuth, async (req, res) => {
     try {
         const { hubId } = req.params;
         const { limit = 50, before } = req.query;
@@ -27,9 +27,10 @@ router.get('/:hubId/chat', requireAuth, async (req, res) => {
             return res.status(404).json({ error: 'Hub not found' });
         }
 
-        // Check if user is member
-        if (!isHubMember(hub, req.internalId)) {
-            return res.status(403).json({ error: 'You must be a member to view chat' });
+        // Check access for private hubs
+        const isMember = isHubMember(hub, req.internalId);
+        if (hub.visibility === 'private' && (!req.internalId || !isMember)) {
+            return res.status(403).json({ error: 'This hub is private' });
         }
 
         if (!hub.chatEnabled) {
@@ -37,7 +38,7 @@ router.get('/:hubId/chat', requireAuth, async (req, res) => {
         }
 
         // Build query
-        const query = { hubId };
+        const query = { hubId, isDeleted: { $ne: true } };
         if (before) {
             query.createdAt = { $lt: new Date(before) };
         }
@@ -56,7 +57,8 @@ router.get('/:hubId/chat', requireAuth, async (req, res) => {
 
         const messagesWithAuthors = messages.reverse().map(msg => ({
             ...msg,
-            author: msg.authorInternalId === 'system' ? { username: 'System', displayName: 'System' } : authorMap[msg.authorInternalId]
+            author: msg.authorInternalId === 'system' ? { username: 'System', displayName: 'System' } : authorMap[msg.authorInternalId],
+            senderUsername: msg.authorInternalId === 'system' ? 'System' : (authorMap[msg.authorInternalId]?.username || 'Anonymous')
         }));
 
         res.json({ messages: messagesWithAuthors });

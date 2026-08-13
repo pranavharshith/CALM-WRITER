@@ -4,13 +4,14 @@ const HubCreatorApplicationSchema = new mongoose.Schema({
     userInternalId: { type: String, required: true },
 
     // Application Details
-    proposedHubName: { type: String, required: true },
+    essay: { type: String },
+    motivation: { type: String },
+    proposedHubName: { type: String },
     proposedTheme: {
         type: String,
-        required: true,
         enum: ['general', 'scifi', 'fantasy', 'poetry', 'mystery', 'horror', 'romance', 'nonfiction', 'other']
     },
-    justification: { type: String, required: true, minLength: 200, maxLength: 1000 },
+    justification: { type: String, minLength: 200, maxLength: 1000 },
 
     // User Stats at Application Time (snapshot)
     userStats: {

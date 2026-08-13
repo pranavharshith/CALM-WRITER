@@ -1,0 +1,21 @@
+- generic [ref=e5]:
+  - generic [ref=e6]: Welcome to Calm Stories
+  - generic [ref=e7]: Thoughtful writing, mindful community
+  - generic [ref=e8]:
+    - button "Sign In" [ref=e9] [cursor=pointer]
+    - button "Sign Up" [ref=e10] [cursor=pointer]
+  - generic [ref=e41]:
+    - generic [ref=e42]:
+      - generic [ref=e43]: Username or Email
+      - textbox "username or email@example.com" [ref=e44]: uitest17@example.com
+    - generic [ref=e45]:
+      - generic [ref=e46]: Password
+      - generic [ref=e47]:
+        - textbox "••••••••" [ref=e48]
+        - button "Toggle password visibility" [ref=e49] [cursor=pointer]: 👁️‍🗨️
+    - generic [ref=e51] [cursor=pointer]:
+      - checkbox "Remember me" [ref=e52]
+      - generic [ref=e53]: Remember me
+    - generic [ref=e54]: Account created. Please check your email to verify your account.
+    - button "Sign In" [ref=e55] [cursor=pointer]
+    - button "Forgot password?" [ref=e56] [cursor=pointer]

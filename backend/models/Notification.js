@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({
-    userId: { type: String, required: true, index: true }, // recipient internalId
+    userInternalId: { type: String, required: true, index: true }, // recipient internalId
     type: {
         type: String,
         required: true,
-        enum: ['follow', 'like', 'story_published', 'edit_request', 'edit_approved']
+        enum: ['follow', 'like', 'story_published', 'edit_request', 'edit_approved', 'thread_response', 'story_continuation', 'hub_approved']
     },
     fromUserId: { type: String }, // who triggered the notification
     fromUsername: { type: String },
@@ -17,7 +17,7 @@ const NotificationSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-NotificationSchema.index({ userId: 1, createdAt: -1 });
-NotificationSchema.index({ userId: 1, read: 1 });
+NotificationSchema.index({ userInternalId: 1, createdAt: -1 });
+NotificationSchema.index({ userInternalId: 1, read: 1 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);

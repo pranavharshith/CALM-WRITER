@@ -8,8 +8,12 @@
  */
 function getActiveStoriesFilter() {
   return {
-    deletedAt: null, // Only include non-deleted stories
-    hidden: false    // Also exclude hidden stories
+    deletedAt: null,
+    hidden: false,
+    $or: [
+      { hubId: null },
+      { hubApprovalStatus: 'approved' },
+    ],
   };
 }
 

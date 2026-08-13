@@ -3,13 +3,79 @@ import { fetchHubs, fetchMyHubs, fetchHubInvites, checkHubEligibility } from '..
 import { SkeletonHubCard, SkeletonHubsPage } from './SkeletonLoader';
 import useMinLoadTime from '../hooks/useMinLoadTime';
 
+function HubCard({ hub, onClick }) {
+    return (
+        <div
+            onClick={onClick}
+            style={{
+                padding: '20px',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '15px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: 'var(--glass-bg-strong)',
+            }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--text-secondary)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.boxShadow = 'none';
+            }}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600' }}>
+                        {hub.name}
+                    </h3>
+                    <p style={{ margin: '0 0 12px 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
+                        {hub.description}
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{
+                            padding: '4px 10px',
+                            background: 'var(--bg-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '12px',
+                            color: 'var(--text-secondary)',
+                        }}>
+                            {hub.theme}
+                        </span>
+                        {hub.tags?.slice(0, 3).map((tag, idx) => (
+                            <span key={idx} style={{
+                                padding: '4px 10px',
+                                background: 'var(--blue-light)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '12px',
+                                color: 'var(--accent)',
+                            }}>
+                                #{tag}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+                <div style={{ textAlign: 'right', minWidth: '100px' }}>
+                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        {hub.memberCount} {hub.memberCount === 1 ? 'member' : 'members'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                        {hub.totalStories} {hub.totalStories === 1 ? 'story' : 'stories'}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
     const [hubs, setHubs] = useState([]);
     const [myHubs, setMyHubs] = useState([]);
     const [invites, setInvites] = useState([]);
     const [view, setView] = useState('discover'); // 'discover', 'my-hubs', 'invites'
     const [rawLoading, setRawLoading] = useState(true);
-    const loading = useMinLoadTime(rawLoading, 1000);
+    const loading = useMinLoadTime(rawLoading);
     const [filter, setFilter] = useState({ visibility: '', theme: '' });
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
@@ -35,7 +101,8 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
         try {
             if (view === 'discover') {
                 const result = await fetchHubs(filter.visibility, filter.theme, page, 20);
-                setHubs(result.hubs || []);
+                const next = result.hubs || [];
+                setHubs(page > 1 ? prev => [...prev, ...next] : next);
                 setHasMore(result.pagination?.currentPage < result.pagination?.totalPages);
             } else if (view === 'my-hubs') {
                 const result = await fetchMyHubs();
@@ -64,79 +131,14 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
         { value: 'nonfiction', label: 'Non-Fiction' },
     ];
 
-    const HubCard = ({ hub }) => (
-        <div
-            onClick={() => onHubClick(hub.hubId)}
-            style={{
-                padding: '20px',
-                border: '1px solid #e0e0e0',
-                borderRadius: '4px',
-                marginBottom: '15px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: '#fff',
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#666';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#e0e0e0';
-                e.currentTarget.style.boxShadow = 'none';
-            }}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600' }}>
-                        {hub.name}
-                    </h3>
-                    <p style={{ margin: '0 0 12px 0', color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
-                        {hub.description}
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{
-                            padding: '4px 10px',
-                            background: '#f0f0f0',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            color: '#555',
-                        }}>
-                            {hub.theme}
-                        </span>
-                        {hub.tags?.slice(0, 3).map((tag, idx) => (
-                            <span key={idx} style={{
-                                padding: '4px 10px',
-                                background: '#e8f4f8',
-                                borderRadius: '12px',
-                                fontSize: '12px',
-                                color: '#0066cc',
-                            }}>
-                                #{tag}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-                <div style={{ textAlign: 'right', minWidth: '100px' }}>
-                    <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-                        {hub.memberCount} {hub.memberCount === 1 ? 'member' : 'members'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#999' }}>
-                        {hub.totalStories} {hub.totalStories === 1 ? 'story' : 'stories'}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    /* Show full-page skeleton on the very first load */
     if (loading && !initialLoaded.current) {
         return <SkeletonHubsPage />;
     }
 
     return (
         <div style={{
-            fontFamily: 'Georgia, serif',
-            background: '#fefefd',
+            fontFamily: 'var(--font-serif)',
+            background: 'transparent',
             minHeight: '100vh',
             padding: '20px',
         }}>
@@ -164,7 +166,7 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                     </h1>
                 </div>
 
-                <p style={{ margin: '0 0 20px 0', color: '#666', fontSize: '15px', lineHeight: '1.6' }}>
+                <p style={{ margin: '0 0 20px 0', color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
                     Join writing communities to collaborate on stories, share ideas, and grow together.
                 </p>
 
@@ -173,7 +175,7 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                     display: 'flex',
                     gap: '10px',
                     marginBottom: '20px',
-                    borderBottom: '1px solid #e0e0e0',
+                    borderBottom: '1px solid var(--border)',
                     paddingBottom: '10px',
                 }}>
                     {['discover', 'my-hubs', 'invites'].map((tab) => (
@@ -184,11 +186,11 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                                 setPage(1);
                             }}
                             style={{
-                                background: view === tab ? '#333' : 'transparent',
-                                color: view === tab ? '#fff' : '#666',
+                                background: view === tab ? 'var(--accent)' : 'transparent',
+                                color: view === tab ? 'var(--accent-contrast)' : 'var(--text-secondary)',
                                 border: 'none',
                                 padding: '8px 16px',
-                                borderRadius: '4px',
+                                borderRadius: 'var(--radius-md)',
                                 cursor: 'pointer',
                                 fontSize: '14px',
                                 textTransform: 'capitalize',
@@ -199,10 +201,10 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                             {tab === 'invites' && invites.length > 0 && (
                                 <span style={{
                                     marginLeft: '6px',
-                                    background: '#c7968c',
-                                    color: '#fff',
+                                    background: 'var(--rose)',
+                                    color: 'var(--rose-contrast)',
                                     padding: '2px 6px',
-                                    borderRadius: '10px',
+                                    borderRadius: 'var(--radius-md)',
                                     fontSize: '11px',
                                 }}>
                                     {invites.length}
@@ -223,10 +225,10 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                             }}
                             style={{
                                 padding: '8px 12px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '14px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         >
                             {themes.map((theme) => (
@@ -240,11 +242,11 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                             <button
                                 onClick={onCreateHub}
                                 style={{
-                                    background: '#3d5a80',
-                                    color: '#fff',
+                                    background: 'var(--accent)',
+                                    color: 'var(--accent-contrast)',
                                     border: 'none',
                                     padding: '8px 16px',
-                                    borderRadius: '4px',
+                                    borderRadius: 'var(--radius-md)',
                                     cursor: 'pointer',
                                     fontSize: '14px',
                                     fontWeight: '500',
@@ -268,21 +270,21 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                         {view === 'discover' && (
                             <>
                                 {hubs.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
                                         No hubs found matching your filters.
                                     </div>
                                 ) : (
                                     <>
-                                        {hubs.map((hub) => <HubCard key={hub.hubId} hub={hub} />)}
+                                        {hubs.map((hub) => <HubCard key={hub.hubId} hub={hub} onClick={() => onHubClick(hub.hubId)} />)}
                                         {hasMore && (
                                             <button
                                                 onClick={() => setPage(page + 1)}
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px',
-                                                    background: '#f5f5f5',
-                                                    border: '1px solid #ddd',
-                                                    borderRadius: '4px',
+                                                    background: 'var(--bg-subtle)',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: 'var(--radius-md)',
                                                     cursor: 'pointer',
                                                     fontSize: '14px',
                                                 }}
@@ -298,11 +300,11 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                         {view === 'my-hubs' && (
                             <>
                                 {myHubs.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
                                         You haven't joined any hubs yet. Explore hubs to get started!
                                     </div>
                                 ) : (
-                                    myHubs.map((hub) => <HubCard key={hub.hubId} hub={hub} />)
+                                    myHubs.map((hub) => <HubCard key={hub.hubId} hub={hub} onClick={() => onHubClick(hub.hubId)} />)
                                 )}
                             </>
                         )}
@@ -310,23 +312,23 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                         {view === 'invites' && (
                             <>
                                 {invites.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
                                         No pending invites.
                                     </div>
                                 ) : (
                                     invites.map((invite) => (
                                         <div key={invite._id} style={{
                                             padding: '20px',
-                                            border: '1px solid #ffd700',
-                                            borderRadius: '4px',
+                                            border: '1px solid var(--amber-border)',
+                                            borderRadius: 'var(--radius-md)',
                                             marginBottom: '15px',
-                                            background: '#fffef0',
+                                            background: 'var(--bg-subtle)',
                                         }}>
                                             <div style={{ marginBottom: '10px' }}>
                                                 <strong>{invite.inviterUsername}</strong> invited you to join{' '}
                                                 <strong>{invite.hubName}</strong>
                                             </div>
-                                            <div style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '15px' }}>
                                                 {new Date(invite.createdAt).toLocaleDateString()}
                                             </div>
                                             <div style={{ display: 'flex', gap: '10px' }}>
@@ -334,10 +336,10 @@ export default function CollaborativeHubs({ onBack, onHubClick, onCreateHub }) {
                                                     onClick={() => onHubClick(invite.hubId)}
                                                     style={{
                                                         padding: '8px 16px',
-                                                        background: '#3d5a80',
-                                                        color: '#fff',
+                                                        background: 'var(--accent)',
+                                                        color: 'var(--accent-contrast)',
                                                         border: 'none',
-                                                        borderRadius: '4px',
+                                                        borderRadius: 'var(--radius-md)',
                                                         cursor: 'pointer',
                                                         fontSize: '14px',
                                                     }}

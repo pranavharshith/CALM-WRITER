@@ -7,7 +7,7 @@ const {
     verifyRefreshToken
 } = require('../middleware/auth-consolidated');
 const rateLimit = require('express-rate-limit');
-const { ipKey } = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 // Rate limiter for token refresh - 100 per 15 minutes (generous for legitimate use)
 const refreshLimiter = rateLimit({
@@ -16,7 +16,7 @@ const refreshLimiter = rateLimit({
   message: { success: false, error: 'Too many refresh attempts. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => ipKey(req)
+  keyGenerator: (req) => ipKeyGenerator(req.ip)
 });
 
 /**

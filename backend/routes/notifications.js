@@ -20,10 +20,12 @@ router.get('/', requireAuth, async (req, res) => {
       notifications: notifications.map(n => ({
         _id: n._id,
         type: n.type,
-        title: n.title,
         message: n.message,
         read: n.read,
-        relatedId: n.relatedId,
+        storyId: n.storyId,
+        fromUserId: n.fromUserId,
+        fromUsername: n.fromUsername,
+        storyTitle: n.storyTitle,
         createdAt: n.createdAt
       })),
       pagination: getPaginationMeta(total, page, limit)
@@ -44,7 +46,8 @@ router.get('/unread-count', requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      unreadCount: count
+      unreadCount: count,
+      count
     });
   } catch (error) {
     console.error('Unread count error:', error);

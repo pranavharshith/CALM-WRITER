@@ -14,7 +14,7 @@ const HubInviteSchema = new mongoose.Schema({
         enum: ['pending', 'accepted', 'declined', 'expired'],
         default: 'pending'
     },
-    expiresAt: { type: Date, required: true }, // 7 days from creation
+    expiresAt: { type: Date, required: true, default: () => Date.now() + 7 * 24 * 60 * 60 * 1000 }, // 7 days from creation
 
     message: { type: String, maxLength: 200 }, // personal invitation message
 

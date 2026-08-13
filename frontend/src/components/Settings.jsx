@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { fetchUserPreferences, updateUserPreferences, fetchCurrentUser } from '../api/api';
 import { SkeletonSettings } from './SkeletonLoader';
 import useMinLoadTime from '../hooks/useMinLoadTime';
+import useToast from '../hooks/useToast';
 import LanguagePicker from './LanguagePicker';
 
-export default function Settings({ onBack, user, setUser }) {
+export default function Settings({ onBack }) {
     const [preferences, setPreferences] = useState({
         calmMode: true,
         fontSize: 'medium',
@@ -13,7 +14,8 @@ export default function Settings({ onBack, user, setUser }) {
         preferredLanguage: 'en',
     });
     const [rawLoading, setRawLoading] = useState(true);
-    const loading = useMinLoadTime(rawLoading, 1000);
+    const loading = useMinLoadTime(rawLoading);
+    const toast = useToast();
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
 
@@ -45,8 +47,8 @@ export default function Settings({ onBack, user, setUser }) {
         try {
             const result = await updateUserPreferences(preferences);
             if (result.success) {
-                setMessage('Settings saved successfully!');
-                setTimeout(() => setMessage(''), 3000);
+                setMessage('');
+                toast.success('Settings saved');
                 window.dispatchEvent(new CustomEvent('preferencesUpdated', {
                     detail: { preferences: result.preferences }
                 }));
@@ -172,9 +174,10 @@ export default function Settings({ onBack, user, setUser }) {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="settings-save-btn"
+                        className={`settings-save-btn${saving ? ' btn--loading' : ''}`}
                     >
-                        {saving ? 'Saving...' : 'Save Settings'}
+                        {saving && <span className="spinner-ring" aria-hidden="true" />}
+                        {saving ? 'Saving…' : 'Save Settings'}
                     </button>
                 </div>
             </div>

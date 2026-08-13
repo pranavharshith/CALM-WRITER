@@ -15,7 +15,6 @@ export default defineConfig({
   },
   build: {
     // Production build optimizations
-    minify: 'terser',
     sourcemap: false, // Disable sourcemaps in production for security
     rollupOptions: {
       output: {

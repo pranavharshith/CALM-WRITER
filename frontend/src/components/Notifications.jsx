@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead, getUnreadNotificationCount } from '../api/api';
-import { SkeletonNotifications } from './SkeletonLoader';
-import useMinLoadTime from '../hooks/useMinLoadTime';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../api/api';
+import { SkeletonNotification, SkeletonRegion } from './SkeletonLoader';
+import useRegionLoading from '../hooks/useRegionLoading';
+import useToast from '../hooks/useToast';
+import { BellIcon, HeartIcon, PencilIcon, CheckIcon, UserIcon, ArrowLeftIcon } from '../icons/Icons';
 
 export default function Notifications({ onBack, onNavigate }) {
     const [notifications, setNotifications] = useState([]);
     const [rawLoading, setRawLoading] = useState(true);
-    const loading = useMinLoadTime(rawLoading, 1000);
+    const [paging, setPaging] = useState(false);
+    const regionLoading = useRegionLoading(rawLoading);
+    const pagingLoading = useRegionLoading(paging);
+    const toast = useToast();
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
 
@@ -19,7 +24,7 @@ export default function Notifications({ onBack, onNavigate }) {
         try {
             const result = await fetchNotifications(page, 20);
             setNotifications(result.notifications || []);
-            setHasMore(result.pagination?.hasMore || false);
+            setHasMore(result.pagination?.hasNext || false);
         } catch (error) {
             console.error('Failed to load notifications:', error);
         } finally {
@@ -28,21 +33,28 @@ export default function Notifications({ onBack, onNavigate }) {
     };
 
     const handleMarkRead = async (notificationId) => {
+        setNotifications(prev =>
+            prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
+        );
         try {
             await markNotificationRead(notificationId);
-            setNotifications(prev =>
-                prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
-            );
         } catch (error) {
+            setNotifications(prev =>
+                prev.map(n => n._id === notificationId ? { ...n, read: false } : n)
+            );
             console.error('Failed to mark as read:', error);
         }
     };
 
     const handleMarkAllRead = async () => {
+        const prev = notifications;
+        setNotifications(list => list.map(n => ({ ...n, read: true })));
         try {
             await markAllNotificationsRead();
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            toast.success('All notifications marked read');
         } catch (error) {
+            setNotifications(prev);
+            toast.error('Could not mark notifications read');
             console.error('Failed to mark all as read:', error);
         }
     };
@@ -84,97 +96,82 @@ export default function Notifications({ onBack, onNavigate }) {
     const getNotificationIcon = (type) => {
         switch (type) {
             case 'follow':
-                return '👤';
+                return <UserIcon size={16} />;
             case 'like':
-                return '❤️';
+                return <HeartIcon size={16} />;
             case 'edit_request':
-                return '✏️';
+                return <PencilIcon size={16} />;
             case 'edit_approved':
-                return '✅';
+                return <CheckIcon size={16} />;
             default:
-                return '🔔';
+                return <BellIcon size={16} />;
         }
     };
 
     return (
-        <div style={{
-            fontFamily: 'Georgia, serif',
-            background: '#fefefd',
-            minHeight: '100vh',
-            padding: '20px',
-        }}>
+        <div className="page" style={{ minHeight: '100vh', padding: '20px' }}>
             <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-                <button onClick={onBack} style={{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '20px',
-                    cursor: 'pointer',
-                    marginBottom: '20px',
-                    color: '#666'
-                }}>
-                    ← Back
+                <button onClick={onBack} className="btn-back" style={{ fontSize: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <ArrowLeftIcon size={14} /> Back
                 </button>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                    <h1 style={{ fontSize: '28px', margin: 0 }}>Notifications</h1>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', marginTop: '16px' }}>
+                    <h1 style={{ fontSize: 'var(--fs-2xl)', margin: 0, fontFamily: 'var(--font-serif)', fontWeight: 600 }}>Notifications</h1>
                     {notifications.some(n => !n.read) && (
                         <button
                             onClick={handleMarkAllRead}
-                            style={{
-                                padding: '8px 16px',
-                                background: 'transparent',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                color: '#666'
-                            }}
+                            className="btn btn--secondary"
                         >
                             Mark all read
                         </button>
                     )}
                 </div>
 
-                {loading && notifications.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                        {[1, 2, 3, 4, 5, 6].map(i => <SkeletonNotification key={i} />)}
-                    </div>
-                ) : notifications.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '60px', color: '#999' }}>
-                        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔔</div>
-                        <div>No notifications yet</div>
+                <SkeletonRegion
+                    loading={regionLoading}
+                    minHeight={360}
+                    skeleton={
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {[1, 2, 3, 4, 5, 6].map(i => <SkeletonNotification key={i} />)}
+                        </div>
+                    }
+                >
+                {notifications.length === 0 ? (
+                    <div className="glass" style={{ textAlign: 'center', padding: '60px', borderRadius: 'var(--radius-lg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', color: 'var(--text-tertiary)' }}>
+                            <BellIcon size={44} />
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)' }}>No notifications yet</div>
                     </div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {notifications.map(notification => (
                             <div
                                 key={notification._id}
                                 onClick={() => handleNotificationClick(notification)}
+                                className="glass glass--hover"
                                 style={{
                                     padding: '16px 20px',
-                                    background: notification.read ? '#fff' : '#f8f9fa',
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: '4px',
+                                    borderRadius: 'var(--radius-lg)',
                                     cursor: 'pointer',
                                     transition: 'background 0.2s',
+                                    opacity: notification.read ? 0.72 : 1,
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = notification.read ? '#fff' : '#f8f9fa'}
                             >
                                 <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-                                    <div style={{ fontSize: '24px', flexShrink: 0 }}>
+                                    <div className="glass-chip" style={{ width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
                                         {getNotificationIcon(notification.type)}
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{
                                             fontSize: '15px',
                                             lineHeight: '1.5',
-                                            color: '#333',
+                                            color: 'var(--text-primary)',
                                             fontWeight: notification.read ? 'normal' : '600'
                                         }}>
                                             {notification.message}
                                         </div>
-                                        <div style={{ fontSize: '13px', color: '#999', marginTop: '4px' }}>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                                             {formatTime(notification.createdAt)}
                                         </div>
                                     </div>
@@ -182,7 +179,7 @@ export default function Notifications({ onBack, onNavigate }) {
                                         <div style={{
                                             width: '8px',
                                             height: '8px',
-                                            background: '#3d5a80',
+                                            background: 'var(--accent)',
                                             borderRadius: '50%',
                                             flexShrink: 0,
                                             marginTop: '6px'
@@ -194,21 +191,33 @@ export default function Notifications({ onBack, onNavigate }) {
                     </div>
                 )}
 
-                {hasMore && (
+                </SkeletonRegion>
+
+                {pagingLoading && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                        <SkeletonNotification />
+                        <SkeletonNotification />
+                    </div>
+                )}
+
+                {hasMore && !regionLoading && !pagingLoading && (
                     <div style={{ textAlign: 'center', marginTop: '20px' }}>
                         <button
-                            onClick={() => {
-                                setPage(p => p + 1);
-                                loadNotifications();
+                            onClick={async () => {
+                                const next = page + 1;
+                                setPaging(true);
+                                try {
+                                    const result = await fetchNotifications(next, 20);
+                                    setNotifications(prev => [...prev, ...(result.notifications || [])]);
+                                    setHasMore(result.pagination?.hasNext || false);
+                                    setPage(next);
+                                } catch (error) {
+                                    console.error('Failed to load more notifications:', error);
+                                } finally {
+                                    setPaging(false);
+                                }
                             }}
-                            style={{
-                                padding: '10px 24px',
-                                background: 'transparent',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                color: '#666'
-                            }}
+                            className="feed__load-more-btn"
                         >
                             Load More
                         </button>

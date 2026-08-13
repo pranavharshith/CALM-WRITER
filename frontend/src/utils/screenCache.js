@@ -66,3 +66,43 @@ export function cacheClearPrefix(prefix) {
         if (key.startsWith(prefix)) store.delete(key);
     }
 }
+
+/**
+ * Patch every cached story (found anywhere inside a cache entry) whose `_id`
+ * matches `storyId`, merging `updates` into it.
+ *
+ * Caches hold stories in several shapes: feed entries are `{ stories: [...] }`,
+ * `featured` and `story:{id}` hold a single story object, hubs hold `{ hub:
+ * { stories: [...] } }`. This helper walks each entry and patches any object
+ * (or nested array) that looks like the target story, so like/bookmark state
+ * stays consistent across pages until the 5-minute TTL rolls the entry over.
+ */
+export function cachePatchStory(storyId, updates) {
+    const patchOne = (obj) => {
+        if (obj && obj._id === storyId) {
+            Object.assign(obj, updates);
+        }
+    };
+
+    for (const [key, entry] of store.entries()) {
+        if (Date.now() > entry.expiresAt) {
+            store.delete(key);
+            continue;
+        }
+
+        const data = entry.data;
+        if (!data) continue;
+
+        if (Array.isArray(data)) {
+            data.forEach(patchOne);
+        } else if (data.stories && Array.isArray(data.stories)) {
+            data.stories.forEach(patchOne);
+        } else if (data.story && Array.isArray(data.story.stories)) {
+            data.story.stories.forEach(patchOne);
+        } else if (data.story) {
+            patchOne(data.story);
+        } else {
+            patchOne(data);
+        }
+    }
+}

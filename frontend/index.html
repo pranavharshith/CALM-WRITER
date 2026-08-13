@@ -4,12 +4,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Calm Stories</title>
+  <script>
+    (function () {
+      var stored = localStorage.getItem('calmstories_theme');
+      var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      if (!stored && theme === 'dark') localStorage.setItem('calmstories_theme', 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <style>
     body {
       margin: 0;
-      font-family: Georgia, serif;
-      background: #fefefd;
+      font-family: 'Inter', Georgia, serif;
+      background: #f4f3ef;
+    }
+    html[data-theme="dark"],
+    html[data-theme="dark"] body {
+      background: #121417;
+      color: #eceff1;
     }
   </style>
 </head>

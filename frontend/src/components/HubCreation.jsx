@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createHub, checkHubEligibility } from '../api/api';
+import useToast from '../hooks/useToast';
 
 export default function HubCreation({ onBack, onCreated }) {
     const [formData, setFormData] = useState({
@@ -14,6 +15,7 @@ export default function HubCreation({ onBack, onCreated }) {
     const [eligibility, setEligibility] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const toast = useToast();
 
     useEffect(() => {
         checkEligibility();
@@ -44,7 +46,7 @@ export default function HubCreation({ onBack, onCreated }) {
 
             const result = await createHub(hubData);
             if (result.success) {
-                alert('Hub created successfully!');
+                toast.success('Hub created');
                 onCreated(result.hub);
             } else {
                 setError(result.error || 'Failed to create hub');
@@ -71,8 +73,8 @@ export default function HubCreation({ onBack, onCreated }) {
     if (eligibility && !eligibility.eligible) {
         return (
             <div style={{
-                fontFamily: 'Georgia, serif',
-                background: '#fefefd',
+                fontFamily: 'var(--font-sans)',
+                background: 'transparent',
                 minHeight: '100vh',
                 padding: '20px',
             }}>
@@ -89,9 +91,9 @@ export default function HubCreation({ onBack, onCreated }) {
                     <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Create a Hub</h1>
                     <div style={{
                         padding: '20px',
-                        background: '#fff3cd',
-                        border: '1px solid #ffc107',
-                        borderRadius: '4px',
+                        background: 'var(--amber-light)',
+                        border: '1px solid var(--amber-border)',
+                        borderRadius: 'var(--radius-md)',
                     }}>
                         <h3 style={{ margin: '0 0 10px 0' }}>Not Eligible Yet</h3>
                         <p style={{ margin: 0, lineHeight: '1.6' }}>
@@ -115,8 +117,8 @@ export default function HubCreation({ onBack, onCreated }) {
 
     return (
         <div style={{
-            fontFamily: 'Georgia, serif',
-            background: '#fefefd',
+            fontFamily: 'var(--font-sans)',
+            background: 'transparent',
             minHeight: '100vh',
             padding: '20px',
         }}>
@@ -132,28 +134,28 @@ export default function HubCreation({ onBack, onCreated }) {
                 </button>
 
                 <h1 style={{ fontSize: '28px', marginBottom: '10px' }}>Create a Collaborative Hub</h1>
-                <p style={{ color: '#666', marginBottom: '30px', lineHeight: '1.6' }}>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', lineHeight: '1.6' }}>
                     Start a community for writers to collaborate on stories together.
                 </p>
 
                 {error && (
                     <div style={{
                         padding: '15px',
-                        background: '#ffe0e0',
-                        border: '1px solid #ff0000',
-                        borderRadius: '4px',
+                        background: 'var(--rose-light)',
+                        border: '1px solid var(--rose-dark)',
+                        borderRadius: 'var(--radius-md)',
                         marginBottom: '20px',
-                        color: '#d44',
+                        color: 'var(--rose-dark)',
                     }}>
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} style={{
-                    background: '#fff',
+                    background: 'var(--glass-bg-strong)',
                     padding: '30px',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
                 }}>
                     {/* Hub Name */}
                     <div style={{ marginBottom: '20px' }}>
@@ -171,13 +173,13 @@ export default function HubCreation({ onBack, onCreated }) {
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         />
-                        <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '5px' }}>
                             3-50 characters
                         </div>
                     </div>
@@ -196,14 +198,14 @@ export default function HubCreation({ onBack, onCreated }) {
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                                 resize: 'vertical',
                             }}
                         />
-                        <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '5px' }}>
                             {formData.description.length}/500 characters
                         </div>
                     </div>
@@ -219,10 +221,10 @@ export default function HubCreation({ onBack, onCreated }) {
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         >
                             {themes.map(theme => (
@@ -244,10 +246,10 @@ export default function HubCreation({ onBack, onCreated }) {
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         />
                     </div>
@@ -263,10 +265,10 @@ export default function HubCreation({ onBack, onCreated }) {
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         >
                             <option value="public">Public - Discoverable by everyone</option>
@@ -286,10 +288,10 @@ export default function HubCreation({ onBack, onCreated }) {
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         >
                             <option value="open">Open - Auto-join for eligible users</option>
@@ -308,17 +310,21 @@ export default function HubCreation({ onBack, onCreated }) {
                             min={5}
                             max={200}
                             value={formData.maxMembers}
-                            onChange={(e) => setFormData({ ...formData, maxMembers: parseInt(e.target.value) })}
+                            onChange={(e) => {
+                                const max = parseInt(e.target.value, 10);
+                                if (Number.isNaN(max)) return;
+                                setFormData({ ...formData, maxMembers: max });
+                            }}
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
                                 fontSize: '15px',
-                                fontFamily: 'Georgia, serif',
+                                fontFamily: 'var(--font-sans)',
                             }}
                         />
-                        <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '5px' }}>
                             5-200 members
                         </div>
                     </div>
@@ -330,10 +336,10 @@ export default function HubCreation({ onBack, onCreated }) {
                         style={{
                             width: '100%',
                             padding: '12px',
-                            background: loading ? '#ccc' : '#3d5a80',
-                            color: '#fff',
+                            background: loading ? 'var(--bg-active)' : 'var(--accent)',
+                            color: loading ? 'var(--text-muted)' : 'var(--accent-contrast)',
                             border: 'none',
-                            borderRadius: '4px',
+                            borderRadius: 'var(--radius-md)',
                             cursor: loading ? 'not-allowed' : 'pointer',
                             fontSize: '16px',
                             fontWeight: '600',

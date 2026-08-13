@@ -1,0 +1,390 @@
+/* ────────────────────────────────────────────────────────────────
+   17. LIQUID GLASS — GLOBAL SURFACE OVERRIDES
+   Theme-aware overrides for hardcoded / inline styles so every
+   surface follows the glass system regardless of component origin.
+   ──────────────────────────────────────────────────────────────── */
+.language-picker__name,
+.language-picker__native {
+  color: var(--text-primary);
+}
+
+.language-picker__arrow,
+.language-picker__english {
+  color: var(--text-secondary);
+}
+
+.language-picker__search {
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.language-picker__search input {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+}
+
+.language-picker__search input:focus {
+  border-color: var(--accent);
+}
+
+.language-picker__item:hover {
+  background: var(--bg-hover);
+}
+
+.language-picker__item.selected {
+  background: var(--accent-light);
+}
+
+.language-picker__check {
+  color: var(--accent);
+}
+
+/* Toast / floating notification */
+.toast {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  padding: 12px 20px;
+  color: var(--text-primary);
+}
+
+/* Story reader translate/speech icon buttons — glass chips */
+.reader__translate-btn,
+.reader__speech-btn {
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.reader__translate-btn:hover:not(:disabled),
+.reader__speech-btn:hover:not(:disabled) {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border);
+}
+
+/* Alerts — glass, theme-aware */
+.alert {
+  border-radius: var(--radius-md);
+}
+
+.alert--success {
+  background: var(--sage-light);
+  border: 1px solid var(--sage);
+  color: var(--sage-dark);
+}
+
+.alert--error {
+  background: var(--rose-light);
+  border: 1px solid var(--rose);
+  color: var(--rose-dark);
+}
+
+.alert--info {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+}
+
+/* Scrollbar — subtle glass tint */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-dark) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border-radius: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Theme toggle — glass pill */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.theme-toggle:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+  border-color: var(--glass-border-dark);
+}
+
+/* App shell — sits above the ambient body gradient */
+.app-shell {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   17. MOTION + FEEDBACK PRIMITIVES
+   (loading taxonomy, toasts, confirm, new-card glow)
+   ──────────────────────────────────────────────────────────────── */
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes new-card-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(125, 157, 116, 0.42), var(--glass-shadow);
+    border-color: var(--sage);
+  }
+
+  45% {
+    box-shadow: 0 0 0 6px rgba(125, 157, 116, 0.16), 0 10px 28px rgba(125, 157, 116, 0.20);
+  }
+
+  100% {
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+  }
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vote-pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.region--loading {
+  pointer-events: none;
+}
+
+.skeleton-region {
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feed__stories--entering > *:nth-child(-n+6) {
+  animation: card-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.feed__stories--entering > *:nth-child(1) { animation-delay: 0ms; }
+.feed__stories--entering > *:nth-child(2) { animation-delay: 40ms; }
+.feed__stories--entering > *:nth-child(3) { animation-delay: 80ms; }
+.feed__stories--entering > *:nth-child(4) { animation-delay: 120ms; }
+.feed__stories--entering > *:nth-child(5) { animation-delay: 160ms; }
+.feed__stories--entering > *:nth-child(6) { animation-delay: 200ms; }
+
+.story-card--new,
+.thread-card--new {
+  animation: card-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), new-card-glow 2.2s ease;
+}
+
+.thread-card {
+  background: var(--glass-bg-strong);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+
+.btn--loading {
+  pointer-events: none;
+  position: relative;
+}
+
+.spinner-ring {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.story-card__action-btn:active:not(:disabled),
+.btn-icon:active:not(:disabled),
+.feed__nav-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.write-screen__publish-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.vote-count--pulse {
+  animation: vote-pulse 0.22s ease;
+}
+
+/* Toast stack — glass, bottom-right */
+.toast-stack {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1400;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: toast-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.toast--leaving {
+  animation: toast-out 0.18s ease forwards;
+}
+
+.toast--success {
+  border-color: var(--sage);
+}
+
+.toast--error {
+  border-color: var(--rose);
+}
+
+.toast--info {
+  border-color: var(--glass-border-dark);
+}
+
+.toast__message {
+  flex: 1;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+
+.toast__dismiss {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.toast__dismiss:hover {
+  color: var(--text-primary);
+}
+
+/* Confirm dialog */
+.confirm-dialog__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: var(--overlay-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: content-in 0.22s ease;
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: var(--radius-lg);
+}
+
+.confirm-dialog__title {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.confirm-dialog__body {
+  margin: 0 0 24px;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-base);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

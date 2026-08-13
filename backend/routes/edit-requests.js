@@ -46,15 +46,28 @@ router.post('/:storyId/create', requireAuth, sanitizeStoryMiddleware, async (req
 
     const editRequest = new EditRequest({
       storyId: req.params.storyId,
-      authorInternalId: story.internalAuthorId,
-      proposerInternalId: req.internalId,
+      requesterId: req.internalId,
+      requesterUsername: req.user?.username,
       proposedText,
       proposedTitle: proposedTitle || story.title,
       reason,
-      status: 'pending'
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
 
     await editRequest.save();
+
+    // Notify the story author that an edit was proposed
+    const { createNotification } = require('../utils/notificationHelper');
+    createNotification({
+      userInternalId: story.internalAuthorId,
+      type: 'edit_request',
+      fromUserId: req.internalId,
+      fromUsername: req.user?.username,
+      storyId: story._id,
+      storyTitle: story.title,
+      message: `@${req.user?.username || 'Someone'} suggested an edit to "${story.title}".`
+    });
 
     res.json({
       success: true,
@@ -83,22 +96,24 @@ router.get('/:storyId', async (req, res) => {
       .limit(limit);
 
     const enriched = await Promise.all(editRequests.map(async (er) => {
-      const proposer = await User.findOne({ internalId: er.proposerInternalId });
+      const proposer = await User.findOne({ internalId: er.requesterId });
       return {
         _id: er._id,
-        proposedText: er.proposedText.substring(0, 200) + '...',
+        proposedText: er.proposedText.length > 200 ? er.proposedText.substring(0, 200) + '...' : er.proposedText,
         proposedTitle: er.proposedTitle,
         reason: er.reason,
         status: er.status,
-        votes: er.votes,
-        proposer: proposer?.username,
+        votes: er.votes || [],
+        voteThreshold: er.voteThreshold,
+        requesterUsername: er.requesterUsername || proposer?.username,
+        authorResponse: er.authorResponse || null,
         createdAt: er.createdAt
       };
     }));
 
     res.json({
       success: true,
-      editRequests: enriched,
+      requests: enriched,
       pagination: getPaginationMeta(total, page, limit)
     });
   } catch (error) {
@@ -115,18 +130,18 @@ router.post('/:requestId/vote', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Edit request not found' });
     }
 
-    // Check if already voted
-    const hasVoted = editRequest.voters?.includes(req.internalId);
+    if (editRequest.status !== 'pending') {
+      return res.status(400).json({ success: false, error: 'This edit request is no longer open for voting' });
+    }
+
+    const hasVoted = editRequest.votes.some(v => v.userId === req.internalId);
 
     if (hasVoted) {
       // Remove vote
-      editRequest.votes = Math.max(0, editRequest.votes - 1);
-      editRequest.voters = editRequest.voters.filter(id => id !== req.internalId);
+      editRequest.votes = editRequest.votes.filter(v => v.userId !== req.internalId);
     } else {
       // Add vote
-      editRequest.votes += 1;
-      if (!editRequest.voters) editRequest.voters = [];
-      editRequest.voters.push(req.internalId);
+      editRequest.votes.push({ userId: req.internalId, votedAt: new Date() });
     }
 
     await editRequest.save();
@@ -134,7 +149,7 @@ router.post('/:requestId/vote', requireAuth, async (req, res) => {
     res.json({
       success: true,
       voted: !hasVoted,
-      votes: editRequest.votes
+      votes: editRequest.votes.length
     });
   } catch (error) {
     console.error('Vote error:', error);
@@ -152,26 +167,43 @@ router.post('/:requestId/author-response', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Edit request not found' });
     }
 
-    if (editRequest.authorInternalId !== req.internalId) {
+    const story = await Story.findById(editRequest.storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+
+    if (story.internalAuthorId !== req.internalId) {
       return res.status(403).json({ success: false, error: 'Only author can respond' });
     }
 
     editRequest.status = approved ? 'approved' : 'rejected';
-    editRequest.authorNote = note;
-    editRequest.respondedAt = new Date();
+    editRequest.authorResponse = {
+      approved: !!approved,
+      respondedAt: new Date(),
+      note: note || ''
+    };
 
     await editRequest.save();
 
     // If approved, update story
     if (approved) {
-      const story = await Story.findById(editRequest.storyId);
-      if (story) {
-        story.text = editRequest.proposedText;
-        story.title = editRequest.proposedTitle;
-        story.editCount = (story.editCount || 0) + 1;
-        story.lastEditedAt = new Date();
-        await story.save();
-      }
+      story.text = editRequest.proposedText;
+      story.title = editRequest.proposedTitle || story.title;
+      story.editCount = (story.editCount || 0) + 1;
+      story.lastEditedAt = new Date();
+      await story.save();
+
+      // Notify the proposer that their edit was approved
+      const { createNotification } = require('../utils/notificationHelper');
+      createNotification({
+        userInternalId: editRequest.requesterId,
+        type: 'edit_approved',
+        fromUserId: req.internalId,
+        fromUsername: req.user?.username,
+        storyId: editRequest.storyId,
+        storyTitle: story.title,
+        message: `Your suggested edit to "${story.title}" was approved by the author.`
+      });
     }
 
     res.json({

@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Environment variables (CRITICAL - DO NOT COMMIT)
 .env
@@ -17,6 +16,9 @@ frontend/.env.production
 # MinIO data
 minio-data/
 minio-server/
+
+# Backend debug scripts
+backend/.debug/
 
 # Logs
 logs/

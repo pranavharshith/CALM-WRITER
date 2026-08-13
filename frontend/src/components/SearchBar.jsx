@@ -1,272 +1,99 @@
 import React, { useState } from 'react';
 
-export default function SearchBar({ onSearch, onClear, isSearching }) {
-  const [query, setQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
+const EMPTY_FILTERS = {
     minLikes: '',
     maxLikes: '',
     minWords: '',
     maxWords: '',
     dateFrom: '',
-    dateTo: ''
-  });
+    dateTo: '',
+};
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (query.trim() || Object.values(filters).some(v => v)) {
-      onSearch(query.trim(), filters);
-    }
-  };
+const FILTER_FIELDS = [
+    { key: 'minLikes', label: 'Min likes', type: 'number', placeholder: '0', min: 0 },
+    { key: 'maxLikes', label: 'Max likes', type: 'number', placeholder: '∞', min: 0 },
+    { key: 'minWords', label: 'Min words', type: 'number', placeholder: '0', min: 0 },
+    { key: 'maxWords', label: 'Max words', type: 'number', placeholder: '800', min: 0 },
+    { key: 'dateFrom', label: 'From', type: 'date' },
+    { key: 'dateTo', label: 'To', type: 'date' },
+];
 
-  const handleClear = () => {
-    setQuery('');
-    setFilters({
-      minLikes: '',
-      maxLikes: '',
-      minWords: '',
-      maxWords: '',
-      dateFrom: '',
-      dateTo: ''
-    });
-    onClear();
-  };
+export default function SearchBar({ onSearch, onClear, isSearching }) {
+    const [query, setQuery] = useState('');
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState(EMPTY_FILTERS);
 
-  const updateFilter = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
+    const hasQueryOrFilters = Boolean(query.trim() || Object.values(filters).some(Boolean));
 
-  return (
-    <div style={{
-      background: '#fff',
-      borderRadius: '8px',
-      padding: '20px',
-      marginBottom: '24px',
-      border: '1px solid #ddd',
-      boxShadow: '0 1px 4px #efefee'
-    }}>
-      <form onSubmit={handleSubmit}>
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '12px'
-        }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search stories, authors, or content..."
-            style={{
-              flex: 1,
-              padding: '10px 16px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              fontSize: '0.95em',
-              outline: 'none'
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              padding: '10px 24px',
-              background: '#222',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '0.9em',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}>
-            Search
-          </button>
-          {isSearching && (
-            <button
-              type="button"
-              onClick={handleClear}
-              style={{
-                padding: '10px 24px',
-                background: 'transparent',
-                color: '#666',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '0.9em',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap'
-              }}>
-              Clear
-            </button>
-          )}
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (hasQueryOrFilters) onSearch(query.trim(), filters);
+    };
+
+    const handleClear = () => {
+        setQuery('');
+        setFilters(EMPTY_FILTERS);
+        onClear();
+    };
+
+    const updateFilter = (key, value) => {
+        setFilters((prev) => ({ ...prev, [key]: value }));
+    };
+
+    return (
+        <div className={`search-bar${showFilters ? ' is-expanded' : ''}`}>
+            <form onSubmit={handleSubmit}>
+                <div className="search-bar__row">
+                    <input
+                        type="search"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search stories, authors, or content..."
+                        className="form-input search-bar__input"
+                        enterKeyHint="search"
+                    />
+                    <button type="submit" className="btn btn--primary">
+                        Search
+                    </button>
+                    {(isSearching || hasQueryOrFilters) && (
+                        <button type="button" onClick={handleClear} className="btn btn--secondary">
+                            Clear
+                        </button>
+                    )}
+                </div>
+
+                <button
+                    type="button"
+                    className="search-bar__toggle"
+                    aria-expanded={showFilters}
+                    onClick={() => setShowFilters((open) => !open)}
+                >
+                    <span aria-hidden="true">{showFilters ? '▴' : '▾'}</span>
+                    {showFilters ? 'Hide filters' : 'Show filters'}
+                </button>
+
+                <div className={`search-bar__drawer${showFilters ? ' is-open' : ''}`}>
+                    <div className="search-bar__drawer-clip">
+                        <div className="search-bar__drawer-panel" aria-hidden={!showFilters}>
+                            {FILTER_FIELDS.map((field) => (
+                                <div key={field.key} className="search-bar__field">
+                                    <label htmlFor={`search-${field.key}`}>{field.label}</label>
+                                    <input
+                                        id={`search-${field.key}`}
+                                        className="form-input"
+                                        type={field.type}
+                                        min={field.min}
+                                        value={filters[field.key]}
+                                        placeholder={field.placeholder}
+                                        onChange={(e) => updateFilter(field.key, e.target.value)}
+                                        tabIndex={showFilters ? 0 : -1}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowFilters(!showFilters)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#666',
-            fontSize: '0.85em',
-            cursor: 'pointer',
-            padding: '4px 0',
-            textDecoration: 'underline'
-          }}>
-          {showFilters ? 'Hide' : 'Show'} filters
-        </button>
-
-        {showFilters && (
-          <div style={{
-            marginTop: '16px',
-            padding: '16px',
-            background: '#fafafa',
-            borderRadius: '6px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '12px'
-          }}>
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.8em',
-                color: '#666',
-                marginBottom: '4px'
-              }}>
-                Min Likes
-              </label>
-              <input
-                type="number"
-                value={filters.minLikes}
-                onChange={(e) => updateFilter('minLikes', e.target.value)}
-                placeholder="0"
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.8em',
-                color: '#666',
-                marginBottom: '4px'
-              }}>
-                Max Likes
-              </label>
-              <input
-                type="number"
-                value={filters.maxLikes}
-                onChange={(e) => updateFilter('maxLikes', e.target.value)}
-                placeholder="∞"
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.8em',
-                color: '#666',
-                marginBottom: '4px'
-              }}>
-                Min Words
-              </label>
-              <input
-                type="number"
-                value={filters.minWords}
-                onChange={(e) => updateFilter('minWords', e.target.value)}
-                placeholder="0"
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.8em',
-                color: '#666',
-                marginBottom: '4px'
-              }}>
-                Max Words
-              </label>
-              <input
-                type="number"
-                value={filters.maxWords}
-                onChange={(e) => updateFilter('maxWords', e.target.value)}
-                placeholder="800"
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.8em',
-                color: '#666',
-                marginBottom: '4px'
-              }}>
-                From Date
-              </label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => updateFilter('dateFrom', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '0.8em',
-                color: '#666',
-                marginBottom: '4px'
-              }}>
-                To Date
-              </label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => updateFilter('dateTo', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '0.9em'
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </form>
-    </div>
-  );
+    );
 }

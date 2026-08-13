@@ -6,10 +6,10 @@
 export const LIKE_COLORS = {
   // Liked state - red/orange combo
   liked: {
-    primary: '#de4020ff',    // Main red
-    secondary: '#f63c17ff',  // Bright orange-red
-    tertiary: '#d84022ff',   // Dark red
-    text: '#de4020ff'        // Text color when liked
+    primary: '#de4020',    // Main red
+    secondary: '#f63c17',  // Bright orange-red
+    tertiary: '#d84022',   // Dark red
+    text: '#de4020'        // Text color when liked
   },
   // Not liked state - grey
   notLiked: {

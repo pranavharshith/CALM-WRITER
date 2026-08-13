@@ -59,24 +59,24 @@ async function createDatabaseIndexes() {
 
         // Follow indexes
         await Follow.collection.createIndex({ followerInternalId: 1 });
-        await Follow.collection.createIndex({ followedUsername: 1 });
+        await Follow.collection.createIndex({ followingInternalId: 1 });
         await Follow.collection.createIndex({
             followerInternalId: 1,
-            followedUsername: 1
+            followingInternalId: 1
         }, { unique: true });
 
         // Notification indexes
-        await Notification.collection.createIndex({ userId: 1, createdAt: -1 });
-        await Notification.collection.createIndex({ userId: 1, read: 1 });
+        await Notification.collection.createIndex({ userInternalId: 1, createdAt: -1 });
+        await Notification.collection.createIndex({ userInternalId: 1, read: 1 });
 
         // Read session indexes
         await ReadSession.collection.createIndex({ storyId: 1 });
-        await ReadSession.collection.createIndex({ userId: 1 });
-        await ReadSession.collection.createIndex({ storyId: 1, userId: 1 });
+        await ReadSession.collection.createIndex({ userInternalId: 1 });
+        await ReadSession.collection.createIndex({ storyId: 1, userInternalId: 1 });
 
         // Report indexes
         await Report.collection.createIndex({ status: 1, createdAt: -1 });
-        await Report.collection.createIndex({ reportedBy: 1 });
+        await Report.collection.createIndex({ userInternalId: 1 });
 
         // Like indexes - CRITICAL for data integrity
         await Like.collection.createIndex({ userInternalId: 1, storyId: 1 }, { unique: true });

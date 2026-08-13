@@ -7,7 +7,7 @@ import useMinLoadTime from '../hooks/useMinLoadTime';
 export default function UserStories({ username, onBack, onReadStory, onProfile, currentUser }) {
   const [stories, setStories] = useState([]);
   const [rawLoading, setRawLoading] = useState(true);
-  const loading = useMinLoadTime(rawLoading, 1000);
+  const loading = useMinLoadTime(rawLoading);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -50,31 +50,18 @@ export default function UserStories({ username, onBack, onReadStory, onProfile, 
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fefefd', padding: '20px' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#666',
-            fontSize: '0.9em',
-            cursor: 'pointer',
-            marginBottom: '30px'
-          }}>
-          ← Back to Profile
-        </button>
-
-        <h1 style={{ fontSize: '2em', marginBottom: '30px', color: '#333' }}>Stories by @{username}</h1>
+    <div className="list-page">
+      <div className="list-page__inner">
+        <button onClick={onBack} className="btn-back mb-5">← Back to profile</button>
+        <h1 className="page-title">Stories by @{username}</h1>
+        <p className="page-sub">Everything they’ve published</p>
 
         {error ? (
-          <div style={{ color: '#d44' }}>{error}</div>
+          <div className="alert alert--error">{error}</div>
         ) : stories.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', opacity: 0.5, fontSize: '1.1em' }}>
-            This user hasn't written any stories yet.
-          </div>
+          <div className="feed__empty">This writer hasn’t published any stories yet.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="list-page__stack">
             {stories.map((story) => (
               <StoryCard
                 key={story._id}

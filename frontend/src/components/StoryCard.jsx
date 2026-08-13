@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { likeStory, bookmarkStory, unbookmarkStory, checkBookmark, translateText, fetchUserPreferences } from '../api/api';
+import { bookmarkStory, unbookmarkStory, checkBookmark, translateText, fetchUserPreferences } from '../api/api';
 import DualArrowIcon from '../icons/DualArrowIcon';
+import { MicIcon, SpeakerIcon, ChatIcon } from '../icons/Icons';
 import ShareButton from './ShareButton';
-import { LIKE_COLORS } from '../styles/likeColors';
+import LikeButton from './LikeButton';
 import useSpeech from '../hooks/useSpeech';
 
-export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, disableLike = false }) {
+export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, onViewThread, disableLike = false, isNew = false }) {
 
-  const [liking, setLiking] = useState(false);
   const [bookmarking, setBookmarking] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [translatedPreview, setTranslatedPreview] = useState(null);
@@ -69,7 +69,7 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
         try {
           const [titleResult, previewResult] = await Promise.all([
             translateText(`${story._id}_title`, 'story_title', story.title, targetLang),
-            translateText(story._id, 'story_text', story.preview || story.text.substring(0, 200), targetLang)
+            translateText(story._id, 'story_text', (story.preview || story.text || '').substring(0, 200), targetLang)
           ]);
 
           if (titleResult.translatedText && previewResult.translatedText) {
@@ -93,26 +93,10 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
   useEffect(() => {
     if (story._id) {
       checkBookmark(story._id).then(result => {
-        setIsBookmarked(result.bookmarked);
+        setIsBookmarked(!!(result.isBookmarked ?? result.bookmarked));
       }).catch(() => { });
     }
   }, [story._id]);
-
-  const handleLike = async (e) => {
-    e.stopPropagation();
-    if (liking) return;
-    setLiking(true);
-    try {
-      const result = await likeStory(story._id);
-      if (result.success) {
-        onLike(story._id, { likes: result.likes, isLikedByUser: result.liked });
-      }
-    } catch (error) {
-      console.error('Failed to like story:', error);
-    } finally {
-      setLiking(false);
-    }
-  };
 
   const handleAuthorClick = (e) => {
     e.stopPropagation();
@@ -122,19 +106,18 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
   const handleBookmark = async (e) => {
     e.stopPropagation();
     if (bookmarking) return;
+    const next = !isBookmarked;
+    setIsBookmarked(next);
     setBookmarking(true);
     try {
-      if (isBookmarked) {
-        const result = await unbookmarkStory(story._id);
-        if (result.success) {
-          setIsBookmarked(false);
-          if (onBookmarkRemoved) onBookmarkRemoved(story._id);
-        }
-      } else {
-        const result = await bookmarkStory(story._id);
-        if (result.success) setIsBookmarked(true);
+      const result = next ? await bookmarkStory(story._id) : await unbookmarkStory(story._id);
+      if (!result.success) {
+        setIsBookmarked(!next);
+        return;
       }
+      if (!next && onBookmarkRemoved) onBookmarkRemoved(story._id);
     } catch (error) {
+      setIsBookmarked(!next);
       console.error('Failed to toggle bookmark:', error);
     } finally {
       setBookmarking(false);
@@ -160,7 +143,7 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
     try {
       const [titleResult, previewResult] = await Promise.all([
         translateText(`${story._id}_title`, 'story_title', story.title, targetLang),
-        translateText(story._id, 'story_text', story.preview || story.text.substring(0, 200), targetLang)
+        translateText(story._id, 'story_text', (story.preview || story.text || '').substring(0, 200), targetLang)
       ]);
       if (titleResult.translatedText && previewResult.translatedText) {
         setTranslatedTitle(titleResult.translatedText);
@@ -200,7 +183,7 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
   };
 
   return (
-    <div className="story-card" onClick={onRead}>
+    <div className={`story-card${isNew ? ' story-card--new' : ''}`} onClick={onRead}>
       {/* Header */}
       <div className="story-card__header">
         <div className="story-card__meta">
@@ -236,12 +219,10 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
           {/* Translate */}
           <button
             onClick={handleTranslate}
-            disabled={translating}
-            className={`story-card__action-btn${showTranslated ? ' story-card__action-btn--translate-active' : ''}`}
+            className={`story-card__action-btn${showTranslated ? ' story-card__action-btn--translate-active' : ''}${translating ? ' is-busy' : ''}`}
             title={showTranslated ? 'Show Original' : 'Translate Preview'}
-            style={{ cursor: translating ? 'wait' : 'pointer', opacity: translating ? 0.6 : 1 }}
           >
-            <DualArrowIcon size={16} color={showTranslated ? '#4facfe' : '#778899'} />
+            <DualArrowIcon size={16} color={showTranslated ? 'var(--blue-icon)' : 'var(--text-muted)'} />
           </button>
 
           {/* Speech */}
@@ -250,13 +231,12 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
             className={`story-card__action-btn${isSpeaking ? ' story-card__action-btn--speech-active' : ''}`}
             title={isSpeaking ? 'Stop Reading' : 'Read Aloud'}
           >
-            {isSpeaking ? '🔊' : '🎤'}
+            {isSpeaking ? <SpeakerIcon size={16} /> : <MicIcon size={16} />}
           </button>
 
           {/* Bookmark */}
           <button
             onClick={handleBookmark}
-            disabled={bookmarking}
             className={`story-card__action-btn${isBookmarked ? ' story-card__action-btn--bookmark-active' : ''}`}
             title={isBookmarked ? 'Remove bookmark' : 'Bookmark story'}
           >
@@ -266,25 +246,7 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
           </button>
 
           {/* Like */}
-          <button
-            onClick={handleLike}
-            disabled={liking || disableLike}
-            className="story-card__action-btn story-card__action-btn--like"
-            style={{ color: story.isLikedByUser ? LIKE_COLORS.liked.text : LIKE_COLORS.notLiked.text }}
-          >
-            <div style={{
-              position: 'relative',
-              width: '14px',
-              height: '14px',
-              transform: story.isLikedByUser ? 'rotate(-45deg) scale(1.1)' : 'rotate(-45deg)',
-              transition: 'transform 0.2s ease'
-            }}>
-              <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.primary : LIKE_COLORS.notLiked.primary, borderRadius: '3px' }} />
-              <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.secondary : LIKE_COLORS.notLiked.secondary, borderRadius: '50%', top: '-7px', left: '0' }} />
-              <div style={{ position: 'absolute', width: '14px', height: '14px', background: story.isLikedByUser ? LIKE_COLORS.liked.tertiary : LIKE_COLORS.notLiked.tertiary, borderRadius: '50%', left: '7px', top: '0' }} />
-            </div>
-            <span>{story.likes || 0}</span>
-          </button>
+          <LikeButton story={story} onLike={onLike} disabled={disableLike} />
 
           <ShareButton story={story} style={{ fontSize: '0.85em', padding: '6px 12px' }} />
         </div>
@@ -318,8 +280,21 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
         ) : showTranslated ? translatedPreview : story.preview}
       </div>
 
-      {/* Read More */}
-      <div className="story-card__read-more">Read full story →</div>
+      <div className="story-card__footer">
+        <div className="story-card__read-more">Read full story →</div>
+        {onViewThread && (
+          <button
+            type="button"
+            className="story-card__thread-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewThread(story._id);
+            }}
+          >
+            <ChatIcon size={13} /> View thread
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,14 +2,21 @@
   "name": "calm-stories",
   "version": "1.0.0",
   "description": "A calm, minimalist writing and reading platform",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "install-all": "cd backend && npm install && cd ../frontend && npm install",
-    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
-    "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm run build && serve -s frontend/build\"",
-    "backend": "cd backend && npm run dev",
-    "frontend": "cd frontend && npm start"
+    "install-all": "npm install",
+    "dev": "concurrently \"npm run dev --workspace backend\" \"npm start --workspace frontend\"",
+    "start": "concurrently \"npm start --workspace backend\" \"npm run build --workspace frontend && serve -s frontend/dist\"",
+    "backend": "npm run dev --workspace backend",
+    "frontend": "npm start --workspace frontend"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.14",
+    "serve": "^14.2.4"
   }
 }

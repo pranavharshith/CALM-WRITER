@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAdminStats, fetchAdminActivity } from '../api/api';
-import {
-    LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
-    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
 import { OverviewDashboard, UserAnalytics, ContentAnalytics, EngagementAnalytics, GrowthRetention, ModerationDashboard, SystemHealth } from './AdminDashboardPages';
 import styles from './AdminDashboardStyles';
-
-const COLORS = ['#0073bb', '#00a4a6', '#f7b500', '#e81123', '#00cc6a', '#8764b8'];
 
 export default function AdminDashboard({ user, onBack }) {
     const [activeTab, setActiveTab] = useState('overview');
@@ -82,7 +76,7 @@ export default function AdminDashboard({ user, onBack }) {
                             {/* KPI cards row — 4 cards */}
                             <div style={styles.kpiRow}>
                                 {[1, 2, 3, 4].map(i => (
-                                    <div key={i} style={{ ...styles.largeKPI, borderTopColor: '#e0e0e0' }}>
+                                    <div key={i} style={{ ...styles.largeKPI, borderTopColor: 'var(--border)' }}>
                                         <div className="skeleton-shimmer" style={{ width: '60%', height: 12, borderRadius: 3, marginBottom: 14 }} />
                                         <div className="skeleton-shimmer" style={{ width: '45%', height: 34, borderRadius: 4, marginBottom: 10 }} />
                                         <div className="skeleton-shimmer" style={{ width: '40%', height: 11, borderRadius: 3 }} />
@@ -109,7 +103,7 @@ export default function AdminDashboard({ user, onBack }) {
                                 <div style={{ ...styles.chartCard, flex: '3 1 0', minWidth: 200 }}>
                                     <div className="skeleton-shimmer" style={{ width: 140, height: 16, borderRadius: 3, marginBottom: 20 }} />
                                     {[1, 2, 3, 4, 5, 6, 7].map(i => (
-                                        <div key={i} style={{ display: 'flex', gap: 10, paddingBottom: 14, borderBottom: '1px solid #f0f0f0', marginBottom: 14 }}>
+                                        <div key={i} style={{ display: 'flex', gap: 10, paddingBottom: 14, borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
                                             <div className="skeleton-shimmer" style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 4, flexShrink: 0 }} />
                                             <div style={{ flex: 1 }}>
                                                 <div className="skeleton-shimmer" style={{ width: '90%', height: 11, borderRadius: 3, marginBottom: 6 }} />
