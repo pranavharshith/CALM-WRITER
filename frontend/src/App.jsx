@@ -35,6 +35,9 @@ const VerifyEmail = React.lazy(() => import('./components/auth/VerifyEmail'));
 const AnalyticsDashboard = React.lazy(() => import('./components/story/AnalyticsDashboard'));
 const Leaderboards = React.lazy(() => import('./components/leaderboard/Leaderboards'));
 const Achievements = React.lazy(() => import('./components/social/Achievements'));
+const ShelfPublic = React.lazy(() => import('./components/social/ShelfPublic'));
+const TagBrowse = React.lazy(() => import('./components/story/TagBrowse'));
+const TagStories = React.lazy(() => import('./components/story/TagStories'));
 
 const StoryReaderRoute = React.lazy(() => import('./routes/StoryReaderRoute'));
 const UserProfileRoute = React.lazy(() => import('./routes/UserProfileRoute'));
@@ -73,7 +76,7 @@ function AppContent() {
   // Pages that must be reachable without an authenticated session
   const isPublicAuthPath = () => {
     const path = window.location.pathname;
-    return ['/login', '/verify-email'].includes(path);
+    return path === '/login' || path === '/verify-email' || path.startsWith('/shelf/') || path === '/tags' || path.startsWith('/tags/');
   };
 
   const checkAuthStatus = async () => {
@@ -221,10 +224,29 @@ function AppContent() {
         <Route path="/bookmarks" element={
           <Suspense fallback={<SkeletonStoryList count={5} />}>
             <Bookmarks
+              user={user}
               onBack={() => navigate(-1)}
               onReadStory={(story) => navigate(`/story/${story._id}`)}
               onProfile={(username) => navigate(`/profile/${username}`)}
             />
+          </Suspense>
+        } />
+
+        <Route path="/shelf/:username/:slug" element={
+          <Suspense fallback={<SkeletonStoryList count={5} />}>
+            <ShelfPublic />
+          </Suspense>
+        } />
+
+        <Route path="/tags" element={
+          <Suspense fallback={<SkeletonStoryList count={5} />}>
+            <TagBrowse onBack={() => navigate('/community')} />
+          </Suspense>
+        } />
+
+        <Route path="/tags/:tag" element={
+          <Suspense fallback={<SkeletonStoryList count={5} />}>
+            <TagStories />
           </Suspense>
         } />
 

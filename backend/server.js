@@ -287,6 +287,7 @@ app.use('/threads', require('./routes/threads'));
 app.use('/leaderboards', require('./routes/social/leaderboards'));
 app.use('/moderation', reportLimiter, require('./routes/moderation'));
 app.use('/bookmarks', require('./routes/social/bookmarks'));
+app.use('/shelves', require('./routes/social/publicShelves'));
 app.use('/follows', require('./routes/social/follows'));
 app.use('/drafts', require('./routes/stories/drafts'));
 app.use('/preferences', require('./routes/users/preferences'));

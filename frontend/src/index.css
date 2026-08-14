@@ -12,5 +12,7 @@
 @import './styles/leaderboard.css';
 @import './styles/hubs.css';
 @import './styles/achievements.css';
+@import './styles/shelves.css';
+@import './styles/tags.css';
 @import './styles/language-picker.css';
 @import './styles/glass-motion.css';

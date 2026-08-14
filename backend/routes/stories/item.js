@@ -38,7 +38,9 @@ router.get('/:storyId', optionalAuth, async (req, res) => {
         internalAuthorId: story.internalAuthorId,
         createdAt: story.createdAt,
         isLikedByUser: req.internalId && story.likedBy ? story.likedBy.includes(req.internalId) : false,
-        threadLocked: story.threadLocked || false
+        threadLocked: story.threadLocked || false,
+        tags: Array.isArray(story.tags) ? story.tags : [],
+        publishedAt: story.publishedAt || story.createdAt
       }
     });
   } catch (error) {

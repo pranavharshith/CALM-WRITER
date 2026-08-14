@@ -48,7 +48,7 @@ export default function SearchBar({ onSearch, onClear, isSearching }) {
                         type="search"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search stories, authors, or content..."
+                        placeholder="Search stories, authors, or #tags..."
                         className="form-input search-bar__input"
                         enterKeyHint="search"
                     />

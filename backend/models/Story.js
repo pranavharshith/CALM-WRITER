@@ -40,6 +40,16 @@ const StorySchema = new mongoose.Schema({
   hubApprovalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' }, // for hubs with requireApproval
   hubApprovedBy: { type: String }, // hub mod who approved
 
+  // Story tags (author on publish / grace; trusted users may retag)
+  tags: {
+    type: [{ type: String, lowercase: true, trim: true, match: /^[a-z0-9-]{2,24}$/ }],
+    default: [],
+    validate: {
+      validator(v) { return !v || v.length <= 5; },
+      message: 'A story can carry at most 5 tags'
+    }
+  },
+
   // Cover Image (optional)
   coverImage: {
     url: { type: String },
@@ -66,6 +76,7 @@ StorySchema.index({ hubId: 1, hubApprovalStatus: 1 });
 StorySchema.index({ hidden: 1, createdAt: -1 });
 StorySchema.index({ isFeatured: 1 });
 StorySchema.index({ likedBy: 1 });
+StorySchema.index({ tags: 1, createdAt: -1 });
 
 /**
  * Atomic like operation - prevents race conditions

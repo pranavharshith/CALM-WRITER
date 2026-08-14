@@ -6,11 +6,13 @@ import EditRequestsList from './EditRequestsList';
 import EditRequestModal from './EditRequestModal';
 import ReportModal from '../moderation/ReportModal';
 import LikeButton from '../common/LikeButton';
-import { trackReadSession, fetchCurrentUser, fetchUserPreferences, translateText } from '../../api/api';
+import { trackReadSession, fetchCurrentUser, fetchUserPreferences, translateText, updateStoryTags } from '../../api/api';
 import DualArrowIcon from '../../icons/DualArrowIcon';
 import { MicIcon, SpeakerIcon, PencilIcon, ArrowLeftIcon } from '../../icons/Icons';
 import useSpeech from '../../hooks/useSpeech';
 import useToast from '../../hooks/useToast';
+import TagChips from './TagChips';
+import TagInput from './TagInput';
 
 // Font size map — runtime user preference, legitimately inline
 const FONT_SIZE_MAP = { small: '1em', medium: '1.17em', large: '1.4em' };
@@ -33,6 +35,10 @@ export default function StoryReader({ story, onBack, onLike }) {
   const [showTranslated, setShowTranslated] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translationError, setTranslationError] = useState(null);
+  const [tags, setTags] = useState(Array.isArray(story.tags) ? story.tags : []);
+  const [tagDraft, setTagDraft] = useState(Array.isArray(story.tags) ? story.tags : []);
+  const [editingTags, setEditingTags] = useState(false);
+  const [savingTags, setSavingTags] = useState(false);
   const ref = useRef(null);
 
   const { toggle: toggleSpeech, isSpeaking } = useSpeech(targetLang);
@@ -58,7 +64,39 @@ export default function StoryReader({ story, onBack, onLike }) {
     setTranslatedTitle(null);
     setTranslatedText(null);
     setTranslationError(null);
+    const next = Array.isArray(story.tags) ? story.tags : [];
+    setTags(next);
+    setTagDraft(next);
+    setEditingTags(false);
   }, [story._id]);
+
+  const canEditTags = (() => {
+    if (!currentUser) return false;
+    if (currentUser.canTagContent) return true;
+    if (['trusted_user', 'moderator', 'admin'].includes(currentUser.role)) return true;
+    if (currentUser.internalId && currentUser.internalId === story.internalAuthorId) {
+      const published = new Date(story.publishedAt || story.createdAt).getTime();
+      return Date.now() - published <= 5 * 60 * 1000;
+    }
+    return false;
+  })();
+
+  const saveTags = async () => {
+    setSavingTags(true);
+    try {
+      const res = await updateStoryTags(story._id, tagDraft);
+      if (res.success === false) throw new Error(res.error || 'Failed');
+      const next = res.tags || tagDraft;
+      setTags(next);
+      setTagDraft(next);
+      setEditingTags(false);
+      toast.success('Tags saved');
+    } catch (err) {
+      toast.error(err.message || 'Could not save tags');
+    } finally {
+      setSavingTags(false);
+    }
+  };
 
   const loadCurrentUser = async () => {
     try {
@@ -292,6 +330,30 @@ export default function StoryReader({ story, onBack, onLike }) {
             )}
           </div>
         </div>
+
+        {editingTags ? (
+          <div className="reader__tags reader__tags-edit">
+            <TagInput tags={tagDraft} onChange={setTagDraft} />
+            <div className="shelves__view-actions">
+              <button type="button" className="btn btn--secondary" onClick={() => { setTagDraft(tags); setEditingTags(false); }} disabled={savingTags}>
+                Cancel
+              </button>
+              <button type="button" className={`btn btn--primary${savingTags ? ' btn--loading' : ''}`} onClick={saveTags} disabled={savingTags}>
+                {savingTags && <span className="spinner-ring" aria-hidden="true" />}
+                Save tags
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="reader__tags">
+            <TagChips tags={tags} />
+            {canEditTags && (
+              <button type="button" className="btn btn--secondary" onClick={() => setEditingTags(true)}>
+                {tags.length ? 'Edit tags' : 'Add tags'}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Story content */}
         <div ref={ref} className="reader__content">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchUserProfile, getBookmarkCount, followUser, unfollowUser, getFollowStatus, getFollowCounts, uploadProfilePicture, deleteProfilePicture } from '../../api/api';
+import { useNavigate } from 'react-router-dom';
+import { fetchUserProfile, getBookmarkCount, followUser, unfollowUser, getFollowStatus, getFollowCounts, uploadProfilePicture, deleteProfilePicture, fetchPublicShelves } from '../../api/api';
 import { SkeletonProfile } from '../skeletons';
 import useMinLoadTime from '../../hooks/useMinLoadTime';
 import useToast from '../../hooks/useToast';
@@ -10,7 +11,9 @@ export default function UserProfile({ username, onBack, currentUser, onLogout, o
   const [rawLoading, setRawLoading] = useState(true);
   const loading = useMinLoadTime(rawLoading);
   const toast = useToast();
+  const navigate = useNavigate();
   const [error, setError] = useState('');
+  const [publicShelves, setPublicShelves] = useState([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [confirmEverywhere, setConfirmEverywhere] = useState(false);
   const [confirmRemovePic, setConfirmRemovePic] = useState(false);
@@ -27,11 +30,21 @@ export default function UserProfile({ username, onBack, currentUser, onLogout, o
   useEffect(() => {
     loadProfile();
     loadFollowCounts();
+    loadPublicShelves();
     if (currentUser && currentUser.username === username) {
       loadBookmarkCount();
     }
     loadFollowInfo();
   }, [username, currentUser]);
+
+  const loadPublicShelves = async () => {
+    try {
+      const res = await fetchPublicShelves(username);
+      setPublicShelves(res?.success === false ? [] : (res.shelves || []));
+    } catch (err) {
+      setPublicShelves([]);
+    }
+  };
 
   const loadProfile = async ({ silent = false } = {}) => {
     try {
@@ -385,10 +398,31 @@ export default function UserProfile({ username, onBack, currentUser, onLogout, o
               <button onClick={() => onViewFollowing(username)} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                 View Following ({followingCount}) →
               </button>
+              {publicShelves.length > 0 && (
+                <div className="profile-shelves">
+                  <p className="achievements__heading">Public shelves</p>
+                  <ul className="shelf-pick__list">
+                    {publicShelves.map((shelf) => (
+                      <li key={shelf._id || shelf.slug}>
+                        <button
+                          type="button"
+                          className="shelf-pick__row"
+                          onClick={() => navigate(`/shelf/${username}/${shelf.slug}`)}
+                        >
+                          {shelf.name}
+                          <span className="shelves__when">
+                            {shelf.storyCount || 0} {(shelf.storyCount || 0) === 1 ? 'story' : 'stories'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {currentUser && currentUser.username === username && (
                 <>
                   <button onClick={onViewBookmarks} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
-                    View Bookmarked Stories ({bookmarkCount}) →
+                    Your shelves ({bookmarkCount}) →
                   </button>
                   <button onClick={onViewMyStories} style={{ textAlign: 'left', padding: '20px', background: 'var(--glass-bg-strong)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
                     My Stories →

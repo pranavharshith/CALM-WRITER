@@ -1,0 +1,338 @@
+/* Reading shelves — named piles of saved stories */
+
+.shelves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.shelves .btn-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  align-self: flex-start;
+}
+
+.shelves__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.shelves__titles {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.shelves__titles .page-title {
+  margin-bottom: var(--sp-2);
+}
+
+.shelves__titles .page-sub {
+  margin-bottom: 0;
+}
+
+.shelves__new {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+}
+
+.shelves__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+}
+
+@media (min-width: 721px) {
+  .shelves__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.shelf-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.shelf-card:hover {
+  background: var(--glass-bg-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.shelf-card--all {
+  background: var(--glass-bg-strong);
+}
+
+.shelf-card__cover {
+  height: 7.5rem;
+  background: var(--sage-light);
+  border-bottom: 1px solid var(--glass-border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shelf-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shelf-card__mark {
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
+  color: var(--sage-dark);
+  line-height: 1;
+}
+
+.shelf-card__body {
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.shelf-card__name {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+}
+
+.shelf-card__desc {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-base);
+}
+
+.shelf-card__meta {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+
+.shelves__view-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.shelves__view-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.shelves__view-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.shelves__view-actions .btn {
+  min-height: var(--tap);
+}
+
+.shelves__empty {
+  margin: 0;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  padding: var(--sp-10) var(--sp-4);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-inset);
+}
+
+.shelves__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.shelves__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.shelves__item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-left: var(--sp-1);
+}
+
+.shelves__when {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+
+.shelves__item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.shelves__item-actions .btn {
+  min-height: var(--tap);
+}
+
+.shelf-form__card {
+  padding: var(--sp-6);
+  gap: var(--sp-5);
+}
+
+.shelf-form__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+}
+
+.shelf-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.shelf-form__label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.shelf-form__vis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.shelf-form__choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  cursor: pointer;
+}
+
+.shelf-form__choice input {
+  margin-top: 0.35em;
+}
+
+.shelf-form__choice strong {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+
+.shelf-form__choice span {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+
+.shelf-pick__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.shelf-pick__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+
+button.shelf-pick__row {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+  font: inherit;
+}
+
+.shelf-pick__row input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.shelf-pick__empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+}
+
+.public-shelf__owner {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.public-shelf__owner button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.public-shelf__owner button:hover {
+  text-decoration: underline;
+}
+
+.shelves__more {
+  text-align: center;
+}

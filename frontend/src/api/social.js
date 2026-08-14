@@ -40,6 +40,81 @@ export async function fetchBookmarks(page = 1, limit = 8, searchQuery = '') {
     return await resp.json();
 }
 
+export async function fetchShelves() {
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function createShelf(payload) {
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+    });
+    return await resp.json();
+}
+
+export async function fetchShelf(shelfId, page = 1, limit = 8) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves/${shelfId}?${params}`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function updateShelf(shelfId, payload) {
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves/${shelfId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+    });
+    return await resp.json();
+}
+
+export async function deleteShelf(shelfId) {
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves/${shelfId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function addStoryToShelf(shelfId, storyId) {
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves/${shelfId}/stories`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ storyId }),
+    });
+    return await resp.json();
+}
+
+export async function removeStoryFromShelf(shelfId, storyId) {
+    const resp = await authenticatedFetch(`${API_BASE}/bookmarks/shelves/${shelfId}/stories/${storyId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function fetchPublicShelf(username, slug, page = 1, limit = 8) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const url = `${API_BASE}/shelves/${encodeURIComponent(username)}/${encodeURIComponent(slug)}?${params}`;
+    const resp = localStorage.getItem('accessToken')
+        ? await authenticatedFetch(url, { headers: getAuthHeaders(null) })
+        : await fetch(url);
+    return await resp.json();
+}
+
+export async function fetchPublicShelves(username) {
+    const url = `${API_BASE}/shelves/${encodeURIComponent(username)}`;
+    const resp = localStorage.getItem('accessToken')
+        ? await authenticatedFetch(url, { headers: getAuthHeaders(null) })
+        : await fetch(url);
+    return await resp.json();
+}
+
 export async function getBookmarkCount() {
     const resp = await authenticatedFetch(`${API_BASE}/bookmarks/count`, {
         headers: getAuthHeaders(null),

@@ -129,6 +129,10 @@
   padding: var(--sp-8);
 }
 
+.write-screen__form .tag-input {
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
 .write-screen__form-label {
   display: block;
   margin-bottom: var(--sp-2);

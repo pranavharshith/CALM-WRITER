@@ -1,10 +1,12 @@
 import { API_BASE, authenticatedFetch, getAuthHeaders } from './client';
 
-export async function saveDraft(title, text, draftId = null, promptId = null) {
+export async function saveDraft(title, text, draftId = null, promptId = null, tags = null) {
+    const body = { title, text, draftId, promptId };
+    if (Array.isArray(tags)) body.tags = tags;
     const resp = await authenticatedFetch(`${API_BASE}/drafts/save`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ title, text, draftId, promptId }),
+        body: JSON.stringify(body),
     });
     return await resp.json();
 }
@@ -33,10 +35,12 @@ export async function deleteDraft(draftId) {
     return await resp.json();
 }
 
-export async function publishDraft(draftId) {
+export async function publishDraft(draftId, tags = null) {
+    const body = Array.isArray(tags) ? { tags } : {};
     const resp = await authenticatedFetch(`${API_BASE}/drafts/${draftId}/publish`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        body: JSON.stringify(body),
     });
     return await resp.json();
 }

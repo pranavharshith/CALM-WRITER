@@ -33,6 +33,7 @@ async function createDatabaseIndexes() {
         await Story.collection.createIndex({ hidden: 1, createdAt: -1 });
         // Text search index
         await Story.collection.createIndex({ title: 'text', text: 'text' });
+        await Story.collection.createIndex({ tags: 1, createdAt: -1 });
 
         // StoryNode indexes
         await StoryNode.collection.createIndex({ rootStoryId: 1 });

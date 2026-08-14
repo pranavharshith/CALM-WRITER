@@ -31,6 +31,7 @@ function storyCardFields(s, internalId) {
     showCoverImage: s.showCoverImage !== false,
     createdAt: s.createdAt,
     isLikedByUser: internalId ? !!(s.likedBy && s.likedBy.includes(internalId)) : false,
+    tags: Array.isArray(s.tags) ? s.tags : [],
   };
 }
 
@@ -47,6 +48,7 @@ const FEED_PROJECT = {
   authorUsername: { $arrayElemAt: ['$author.username', 0] },
   authorDisplayName: { $arrayElemAt: ['$author.displayName', 0] },
   authorProfilePicture: { $arrayElemAt: ['$author.profilePicture.url', 0] },
+  tags: 1,
 };
 
 // GET /stories/random - Fetch random story
@@ -79,7 +81,8 @@ router.get('/random', publicLimiter, optionalAuth, async (req, res) => {
         coverImage: storyData.coverImage || null,
         showCoverImage: storyData.showCoverImage !== false,
         createdAt: storyData.createdAt,
-        isLikedByUser: req.internalId ? storyData.likedBy?.includes(req.internalId) : false
+        isLikedByUser: req.internalId ? storyData.likedBy?.includes(req.internalId) : false,
+        tags: Array.isArray(storyData.tags) ? storyData.tags : []
       }
     });
   } catch (error) {
@@ -320,7 +323,8 @@ router.get('/featured', optionalAuth, async (req, res) => {
         coverImage: story.coverImage || null,
         showCoverImage: story.showCoverImage !== false,
         createdAt: story.createdAt,
-        isLikedByUser: req.internalId ? story.likedBy?.includes(req.internalId) : false
+        isLikedByUser: req.internalId ? story.likedBy?.includes(req.internalId) : false,
+        tags: Array.isArray(story.tags) ? story.tags : []
       }
     });
   } catch (error) {
@@ -368,9 +372,9 @@ router.get('/leaderboard', optionalAuth, async (req, res) => {
 // GET /stories/search - Search stories
 router.get('/search', optionalAuth, async (req, res) => {
   try {
-    const { q, minLikes, maxLikes, minWords, maxWords, dateFrom, dateTo } = req.query;
+    const { q, minLikes, maxLikes, minWords, maxWords, dateFrom, dateTo, tag } = req.query;
     const hasQuery = typeof q === 'string' && q.trim().length > 0;
-    const hasFilters = [minLikes, maxLikes, minWords, maxWords, dateFrom, dateTo]
+    const hasFilters = [minLikes, maxLikes, minWords, maxWords, dateFrom, dateTo, tag]
       .some((v) => v !== undefined && v !== '');
     if (!hasQuery && !hasFilters) {
       return res.status(400).json({ success: false, error: 'Search query or filters required' });
@@ -378,6 +382,9 @@ router.get('/search', optionalAuth, async (req, res) => {
 
     const { skip, limit, page } = getPaginationParams(req.query);
     const filter = { ...getActiveStoriesFilter() };
+    const hubOr = filter.$or;
+    delete filter.$or;
+    const extraClauses = [];
 
     if (minLikes) filter.likes = { ...(filter.likes || {}), $gte: parseInt(minLikes, 10) || 0 };
     if (maxLikes) filter.likes = { ...(filter.likes || {}), $lte: parseInt(maxLikes, 10) || 0 };
@@ -394,10 +401,37 @@ router.get('/search', optionalAuth, async (req, res) => {
         filter.createdAt = { ...(filter.createdAt || {}), $lte: to };
       }
     }
-    if (hasQuery) filter.$text = { $search: q.trim() };
+    const { normalizeTag, isValidTag, escapeRegex } = require('../../utils/tags');
+    if (typeof tag === 'string' && tag.trim()) {
+      const t = normalizeTag(tag);
+      if (isValidTag(t)) filter.tags = t;
+    }
+    let useTextScore = false;
+    if (hasQuery) {
+      const trimmed = q.trim();
+      const asTag = normalizeTag(trimmed);
+      const tagLike = isValidTag(asTag) && !/\s/.test(trimmed);
+      if (tagLike && !filter.tags) {
+        extraClauses.push({
+          $or: [
+            { tags: asTag },
+            { title: { $regex: escapeRegex(trimmed), $options: 'i' } }
+          ]
+        });
+      } else {
+        filter.$text = { $search: trimmed };
+        useTextScore = true;
+      }
+    }
+    if (hubOr || extraClauses.length) {
+      filter.$and = [
+        ...(hubOr ? [{ $or: hubOr }] : []),
+        ...extraClauses
+      ];
+    }
 
     let query = Story.find(filter);
-    query = hasQuery
+    query = useTextScore
       ? query.sort({ score: { $meta: 'textScore' } })
       : query.sort({ createdAt: -1 });
 

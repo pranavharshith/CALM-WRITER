@@ -1,10 +1,16 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Bookmark = require('../../models/Bookmark');
+const BookmarkShelf = require('../../models/BookmarkShelf');
 const Story = require('../../models/Story');
 const User = require('../../models/User');
 const { requireAuth } = require('../../middleware/auth');
 const { getPaginationParams, getPaginationMeta } = require('../../utils/pagination');
+const { cardFromStory } = require('../../utils/storyCards');
+
+// Named shelves — must mount before /:storyId
+router.use('/shelves', require('./shelves'));
 
 // POST /bookmarks - Create bookmark
 router.post('/', requireAuth, async (req, res) => {
@@ -51,7 +57,22 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /bookmarks/:storyId - Delete bookmark
+// GET /bookmarks/count - Get bookmark count (before /:storyId)
+router.get('/count', requireAuth, async (req, res) => {
+  try {
+    const count = await Bookmark.countDocuments({ userInternalId: req.internalId });
+
+    res.json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    console.error('Bookmark count error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get bookmark count' });
+  }
+});
+
+// DELETE /bookmarks/:storyId - Delete bookmark (also lifts it off every shelf)
 router.delete('/:storyId', requireAuth, async (req, res) => {
   try {
     const result = await Bookmark.deleteOne({
@@ -61,6 +82,18 @@ router.delete('/:storyId', requireAuth, async (req, res) => {
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ success: false, error: 'Bookmark not found' });
+    }
+
+    if (mongoose.isValidObjectId(req.params.storyId)) {
+      const oid = new mongoose.Types.ObjectId(req.params.storyId);
+      await BookmarkShelf.updateMany(
+        { ownerInternalId: req.internalId },
+        { $pull: { storyIds: oid } }
+      );
+      await BookmarkShelf.updateMany(
+        { ownerInternalId: req.internalId, coverStoryId: oid },
+        { $set: { coverStoryId: null } }
+      );
     }
 
     res.json({ success: true, message: 'Bookmark removed' });
@@ -98,11 +131,35 @@ router.get('/', requireAuth, async (req, res) => {
     let query = { userInternalId: req.internalId };
 
     if (searchQuery) {
-      const storyIds = await Story.find({
-        $text: { $search: searchQuery }
-      }).select('_id');
+      const { escapeRegex } = require('../../utils/tags');
+      const raw = String(searchQuery).trim();
+      const ids = new Set();
 
-      query.storyId = { $in: storyIds };
+      try {
+        const textHits = await Story.find({ $text: { $search: raw } }).select('_id').lean();
+        textHits.forEach((s) => ids.add(String(s._id)));
+      } catch (err) {
+        const titleHits = await Story.find({
+          title: { $regex: escapeRegex(raw), $options: 'i' }
+        }).select('_id').lean();
+        titleHits.forEach((s) => ids.add(String(s._id)));
+      }
+
+      const authors = await User.find({
+        $or: [
+          { username: { $regex: escapeRegex(raw), $options: 'i' } },
+          { displayName: { $regex: escapeRegex(raw), $options: 'i' } }
+        ]
+      }).select('internalId').lean();
+
+      if (authors.length > 0) {
+        const authorHits = await Story.find({
+          internalAuthorId: { $in: authors.map((a) => a.internalId) }
+        }).select('_id').lean();
+        authorHits.forEach((s) => ids.add(String(s._id)));
+      }
+
+      query.storyId = { $in: [...ids] };
     }
 
     const total = await Bookmark.countDocuments(query);
@@ -113,27 +170,13 @@ router.get('/', requireAuth, async (req, res) => {
 
     const enriched = await Promise.all(bookmarks.map(async (bm) => {
       const story = await Story.findById(bm.storyId).lean();
-      if (!story) return null;
+      if (!story || story.deletedAt || story.hidden) return null;
 
       const author = await User.findOne({ internalId: story.internalAuthorId });
 
       return {
         _id: bm._id,
-        story: {
-          _id: story._id,
-          title: story.title,
-          text: story.text,
-          preview: (story.text || '').substring(0, 200) + ((story.text || '').length > 200 ? '...' : ''),
-          wordCount: story.wordCount,
-          likes: story.likes,
-          likedBy: story.likedBy,
-          authorUsername: author?.username || 'Anonymous',
-          authorProfilePicture: author?.profilePicture?.url || null,
-          isLikedByUser: (story.likedBy || []).includes(req.internalId),
-          createdAt: story.createdAt,
-          coverImage: story.coverImage,
-          showCoverImage: story.showCoverImage
-        },
+        story: cardFromStory(story, author, req.internalId),
         bookmarkedAt: bm.createdAt
       };
     }));
@@ -149,21 +192,6 @@ router.get('/', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Bookmarks fetch error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch bookmarks' });
-  }
-});
-
-// GET /bookmarks/count - Get bookmark count
-router.get('/count', requireAuth, async (req, res) => {
-  try {
-    const count = await Bookmark.countDocuments({ userInternalId: req.internalId });
-
-    res.json({
-      success: true,
-      count
-    });
-  } catch (error) {
-    console.error('Bookmark count error:', error);
-    res.status(500).json({ success: false, error: 'Failed to get bookmark count' });
   }
 });
 

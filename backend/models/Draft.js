@@ -7,6 +7,7 @@ const draftSchema = new mongoose.Schema({
     wordCount: { type: Number, default: 0 },
     lastSaved: { type: Date, default: Date.now },
     promptId: { type: mongoose.Schema.Types.ObjectId, ref: 'DailyPrompt', default: null },
+    tags: { type: [String], default: [] },
 
     // Draft sharing feature
     shareToken: { type: String, unique: true, sparse: true }, // UUID for secret link

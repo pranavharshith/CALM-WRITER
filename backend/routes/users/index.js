@@ -95,6 +95,7 @@ router.get('/me', requireAuth, async (req, res) => {
       profilePicture: user.profilePicture?.url,
       isEmailVerified: !!user.isEmailVerified,
       canCreateHubs: !!user.canCreateHubs,
+      canTagContent: !!user.canTagContent,
       strikes: user.strikes || 0,
       preferences: user.preferences || {}
     });

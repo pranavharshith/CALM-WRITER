@@ -4,12 +4,13 @@ import DualArrowIcon from '../../icons/DualArrowIcon';
 import { MicIcon, SpeakerIcon, ChatIcon } from '../../icons/Icons';
 import ShareButton from '../common/ShareButton';
 import LikeButton from '../common/LikeButton';
+import TagChips from './TagChips';
 import useSpeech from '../../hooks/useSpeech';
 
-export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, onViewThread, disableLike = false, isNew = false }) {
+export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBookmarkRemoved, onViewThread, disableLike = false, isNew = false, saveable = true, saved = null }) {
 
   const [bookmarking, setBookmarking] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(saved === true);
   const [translatedPreview, setTranslatedPreview] = useState(null);
   const [translatedTitle, setTranslatedTitle] = useState(null);
   const [targetLang, setTargetLang] = useState('en');
@@ -91,12 +92,20 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
   }, [showTranslated, targetLang, story._id, story.title, story.preview, story.text]);
 
   useEffect(() => {
-    if (story._id) {
+    if (saved === true) {
+      setIsBookmarked(true);
+      return;
+    }
+    if (saved === false) {
+      setIsBookmarked(false);
+      return;
+    }
+    if (saveable && story._id) {
       checkBookmark(story._id).then(result => {
         setIsBookmarked(!!(result.isBookmarked ?? result.bookmarked));
       }).catch(() => { });
     }
-  }, [story._id]);
+  }, [story._id, saveable, saved]);
 
   const handleAuthorClick = (e) => {
     e.stopPropagation();
@@ -235,15 +244,17 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
           </button>
 
           {/* Bookmark */}
-          <button
-            onClick={handleBookmark}
-            className={`story-card__action-btn${isBookmarked ? ' story-card__action-btn--bookmark-active' : ''}`}
-            title={isBookmarked ? 'Remove bookmark' : 'Bookmark story'}
-          >
-            <div className="bookmark-icon">
-              <div className={`bookmark-icon__shape ${isBookmarked ? 'bookmark-icon__shape--active' : 'bookmark-icon__shape--inactive'}`} />
-            </div>
-          </button>
+          {saveable && (
+            <button
+              onClick={handleBookmark}
+              className={`story-card__action-btn${isBookmarked ? ' story-card__action-btn--bookmark-active' : ''}`}
+              title={isBookmarked ? 'Remove bookmark' : 'Bookmark story'}
+            >
+              <div className="bookmark-icon">
+                <div className={`bookmark-icon__shape ${isBookmarked ? 'bookmark-icon__shape--active' : 'bookmark-icon__shape--inactive'}`} />
+              </div>
+            </button>
+          )}
 
           {/* Like */}
           <LikeButton story={story} onLike={onLike} disabled={disableLike} />
@@ -269,6 +280,8 @@ export default function StoryCard({ story, onRead, onLike, onAuthorClick, onBook
           )}
         </div>
       )}
+
+      <TagChips tags={story.tags} stopCardClick />
 
       {/* Preview */}
       <div className="story-card__preview">

@@ -4,6 +4,7 @@ import { SkeletonWriteScreen } from '../skeletons';
 import useMinLoadTime from '../../hooks/useMinLoadTime';
 import useToast from '../../hooks/useToast';
 import ConfirmDialog from '../common/ConfirmDialog';
+import TagInput from './TagInput';
 import { cacheClearPrefix } from '../../utils/screenCache';
 
 export default function WriteScreen({ onBack, user, setUser }) {
@@ -18,6 +19,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [showDrafts, setShowDrafts] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
+  const [tags, setTags] = useState([]);
 
   // Initial load state
   const [rawLoading, setRawLoading] = useState(true);
@@ -50,7 +52,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
       setAutoSaveStatus('Saving...');
       autoSaveTimer.current = setTimeout(async () => {
         try {
-          const result = await saveDraft(title, text, draftIdRef.current || currentDraftId, promptIdRef.current);
+          const result = await saveDraft(title, text, draftIdRef.current || currentDraftId, promptIdRef.current, tags);
           if (result.success) {
             draftIdRef.current = result.draft._id;
             if (!currentDraftId) setCurrentDraftId(result.draft._id);
@@ -63,7 +65,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
       }, 2000);
     }
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
-  }, [title, text, currentDraftId]);
+  }, [title, text, currentDraftId, tags]);
 
   const checkPublishStatus = async () => {
     try {
@@ -101,17 +103,18 @@ export default function WriteScreen({ onBack, user, setUser }) {
     setError('');
     try {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-      const saveResult = await saveDraft(title.trim(), text.trim(), draftIdRef.current || currentDraftId, promptIdRef.current);
+      const saveResult = await saveDraft(title.trim(), text.trim(), draftIdRef.current || currentDraftId, promptIdRef.current, tags);
       if (!saveResult?.success || !saveResult.draft?._id) {
         setError(saveResult?.error || 'Failed to save draft before publishing');
         return;
       }
       draftIdRef.current = saveResult.draft._id;
       setCurrentDraftId(saveResult.draft._id);
-      const result = await publishDraft(saveResult.draft._id);
+      const result = await publishDraft(saveResult.draft._id, tags);
       if (result.success) {
         setTitle('');
         setText('');
+        setTags([]);
         setCurrentDraftId(null);
         draftIdRef.current = null;
         promptIdRef.current = null;
@@ -132,6 +135,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
   const handleLoadDraft = (draft) => {
     setTitle(draft.title || '');
     setText(draft.text || '');
+    setTags(Array.isArray(draft.tags) ? draft.tags : []);
     setCurrentDraftId(draft._id);
     draftIdRef.current = draft._id;
     promptIdRef.current = draft.promptId || null;
@@ -152,6 +156,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
       if (currentDraftId === draftToDelete) {
         setTitle('');
         setText('');
+        setTags([]);
         setCurrentDraftId(null);
         draftIdRef.current = null;
         promptIdRef.current = null;
@@ -169,6 +174,7 @@ export default function WriteScreen({ onBack, user, setUser }) {
   const handleNewDraft = () => {
     setTitle('');
     setText('');
+    setTags([]);
     setCurrentDraftId(null);
     draftIdRef.current = null;
     promptIdRef.current = null;
@@ -250,6 +256,8 @@ export default function WriteScreen({ onBack, user, setUser }) {
               maxLength={100}
             />
           </div>
+
+          <TagInput tags={tags} onChange={setTags} />
 
           <textarea
             className="write-screen__body-textarea"

@@ -116,6 +116,8 @@ export default function FeedHeader({
               compact && user?.username && { label: `@${user.username}`, onClick: () => onProfile(user.username) },
               onSettings && { label: 'Settings', onClick: onSettings },
               onAnalytics && { label: 'Writer stats', onClick: onAnalytics },
+              { label: 'Shelves', onClick: () => navigate('/bookmarks') },
+              { label: 'Tags', onClick: () => navigate('/tags') },
               { label: 'Badges', onClick: () => navigate('/achievements') },
               user?.role === 'admin' && onAdmin && { label: 'Admin', onClick: onAdmin },
               onModeration && ['admin', 'moderator'].includes(user?.role) && { label: 'Moderation', onClick: onModeration },

@@ -11,6 +11,7 @@ import useRegionLoading from '../../hooks/useRegionLoading';
 import { cacheHas, cacheGet, cachePut } from '../../utils/screenCache';
 import FeedHeader from './FeedHeader';
 import FeedSidebar from './FeedSidebar';
+import TrendingTags from './TrendingTags';
 
 export default function CommunityFeed({ user, onReadStory, onWriteStory, onWritePrompt, onProfile, onHubs, onSettings, onNotifications, onAnalytics, onAdmin, onModeration, onViewThread, onLeaderboards }) {
   const [stories, setStories] = useState([]);
@@ -192,9 +193,15 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onWrite
         setPaging(true);
       }
       setIsSearching(true);
+      let nextQuery = query;
+      let nextFilters = { ...filters };
+      if (typeof query === 'string' && query.trim().startsWith('#')) {
+        nextFilters = { ...nextFilters, tag: query.trim().slice(1) };
+        nextQuery = '';
+      }
       setSearchQuery(query);
-      setSearchFilters(filters);
-      const result = await searchStories(query, filters, pageNum);
+      setSearchFilters(nextFilters);
+      const result = await searchStories(nextQuery, nextFilters, pageNum);
       if (gen !== feedGen.current) return;
       if (result?.stories) {
         if (pageNum === 1) setStories(result.stories);
@@ -320,6 +327,8 @@ export default function CommunityFeed({ user, onReadStory, onWriteStory, onWrite
           {!isSearching && onWritePrompt && (
             <PromptBanner onWrite={onWritePrompt} />
           )}
+
+          {!isSearching && <TrendingTags />}
 
           {/* Onboarding checklist for new users */}
           {!isSearching && user && (

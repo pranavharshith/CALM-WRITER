@@ -11,7 +11,8 @@ const { checkAndUpdateStoryPublishCooldown } = require('../../utils/cooldownMana
 // POST /drafts/save: Save or update draft
 router.post('/save', requireAuth, async (req, res) => {
     try {
-        const { title, text, draftId, promptId } = req.body;
+        const { title, text, draftId, promptId, tags } = req.body;
+        const { parseTags } = require('../../utils/tags');
 
         const wordCount = text ? text.trim().split(/\s+/).filter(word => word.length > 0).length : 0;
 
@@ -23,6 +24,7 @@ router.post('/save', requireAuth, async (req, res) => {
                 lastSaved: new Date()
             };
             if (promptId) update.promptId = promptId;
+            if (Array.isArray(tags)) update.tags = parseTags(tags);
 
             const draft = await Draft.findOneAndUpdate(
                 { _id: draftId, internalAuthorId: req.internalId },
@@ -43,7 +45,8 @@ router.post('/save', requireAuth, async (req, res) => {
                 text: text || '',
                 wordCount,
                 lastSaved: new Date(),
-                promptId: promptId || null
+                promptId: promptId || null,
+                tags: Array.isArray(tags) ? parseTags(tags) : []
             });
 
             await draft.save();
@@ -155,6 +158,9 @@ router.post('/:id/publish', requireAuth, async (req, res) => {
         }
 
 
+        const { parseTags } = require('../../utils/tags');
+        const tags = parseTags(req.body?.tags != null ? req.body.tags : draft.tags);
+
         // Create story from draft
         const story = new Story({
             internalAuthorId: req.internalId,
@@ -163,7 +169,8 @@ router.post('/:id/publish', requireAuth, async (req, res) => {
             wordCount,
             locked: true,
             publishedAt: new Date(),
-            promptId: draft.promptId || null
+            promptId: draft.promptId || null,
+            tags
         });
         await story.save();
         try {

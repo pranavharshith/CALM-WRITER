@@ -145,6 +145,7 @@ export async function searchStories(query, filters = {}, page = 1, limit = 10) {
     if (filters.maxWords) params.append('maxWords', filters.maxWords);
     if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters.tag) params.append('tag', filters.tag);
 
     const resp = await authenticatedFetch(`${API_BASE}/stories/search?${params.toString()}`, {
         headers: getAuthHeaders(null),
@@ -161,6 +162,40 @@ export async function submitReaction(storyId, reactionType) {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ storyId, reactionType }),
+    });
+    return await resp.json();
+}
+
+export async function fetchTrendingTags() {
+    const resp = await authenticatedFetch(`${API_BASE}/stories/tags/trending`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function searchTags(query = '') {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    const qs = params.toString();
+    const resp = await authenticatedFetch(`${API_BASE}/stories/tags${qs ? `?${qs}` : ''}`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function fetchStoriesByTag(tag, page = 1, limit = 8) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const resp = await authenticatedFetch(`${API_BASE}/stories/tags/${encodeURIComponent(tag)}?${params}`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function updateStoryTags(storyId, tags) {
+    const resp = await authenticatedFetch(`${API_BASE}/stories/${storyId}/tags`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ tags }),
     });
     return await resp.json();
 }

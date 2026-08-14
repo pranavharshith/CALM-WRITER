@@ -92,7 +92,8 @@ router.get('/mine', requireAuth, async (req, res) => {
         likes: s.likes,
         isLikedByUser: (s.likedBy || []).includes(req.internalId),
         createdAt: s.createdAt,
-        hidden: s.hidden
+        hidden: s.hidden,
+        tags: Array.isArray(s.tags) ? s.tags : []
       })),
       pagination: getPaginationMeta(total, page, limit)
     });
