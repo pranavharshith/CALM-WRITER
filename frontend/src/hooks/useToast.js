@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { ToastContext } from '../components/ToastProvider';
+import { ToastContext } from '../components/common/ToastProvider';
 
 /**
  * useToast – glass toast API. Must be called under <ToastProvider>.

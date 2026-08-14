@@ -2,7 +2,7 @@
    11. COMMUNITY FEED
    ──────────────────────────────────────────────────────────────── */
 .feed {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: var(--bg-page);
   color: var(--text-primary);
 }
@@ -118,9 +118,9 @@
 }
 
 .list-page {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: transparent;
-  padding: var(--sp-5);
+  padding: var(--page-pad);
 }
 
 .list-page__inner {
@@ -220,6 +220,7 @@
 }
 
 .feed__nav-btn {
+  position: relative;
   padding: var(--sp-2) var(--sp-4);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -227,6 +228,17 @@
   cursor: pointer;
   font-family: inherit;
   transition: var(--transition);
+}
+
+.feed__nav-dot {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--rose);
+  box-shadow: 0 0 0 2px var(--glass-bg);
 }
 
 .feed__nav-btn--write {
@@ -304,43 +316,16 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Feed body layout */
-.feed__body {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: var(--sp-6) var(--sp-5);
-  display: flex;
-  gap: var(--sp-6);
-  align-items: flex-start;
-}
-
-.feed__main {
-  flex: 1;
-  max-width: 800px;
-  min-width: 0;
-}
-
 .feed__sidebar {
-  width: 380px;
+  width: min(380px, 100%);
   flex-shrink: 0;
-}
-
-.feed__sidebar-sticky {
-  position: fixed;
-  width: 380px;
-  top: 100px;
-  right: calc((100vw - 1240px) / 2);
-  height: calc(100vh - 120px);
-  overflow: hidden;
-  padding-right: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  min-width: 0;
 }
 
 /* Sort tabs — frosted segmented control */
 .feed__sort {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-2);
   margin-bottom: var(--sp-8);
 }

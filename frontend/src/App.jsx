@@ -13,26 +13,28 @@ import {
   SkeletonHubsPage,
   SkeletonStoryList,
   SkeletonFollowRow,
-  SkeletonHubDetail
-} from './components/SkeletonLoader';
-import ToastProvider from './components/ToastProvider';
+  SkeletonHubDetail,
+  SkeletonAchievements
+} from './components/skeletons';
+import ToastProvider from './components/common/ToastProvider';
 
-const Auth = React.lazy(() => import('./components/Auth'));
-const UsernameSetup = React.lazy(() => import('./components/UsernameSetup'));
-const CommunityFeed = React.lazy(() => import('./components/CommunityFeed'));
-const WriteScreen = React.lazy(() => import('./components/WriteScreen'));
-const PrivateArchive = React.lazy(() => import('./components/PrivateArchive'));
-const ModerationDashboard = React.lazy(() => import('./components/ModerationDashboard'));
-const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
-const Bookmarks = React.lazy(() => import('./components/Bookmarks'));
-const MyStories = React.lazy(() => import('./components/MyStories'));
-const CollaborativeHubs = React.lazy(() => import('./components/CollaborativeHubs'));
-const HubCreation = React.lazy(() => import('./components/HubCreation'));
-const Settings = React.lazy(() => import('./components/Settings'));
-const Notifications = React.lazy(() => import('./components/Notifications'));
-const VerifyEmail = React.lazy(() => import('./components/VerifyEmail'));
-const AnalyticsDashboard = React.lazy(() => import('./components/AnalyticsDashboard'));
-const Leaderboards = React.lazy(() => import('./components/Leaderboards'));
+const Auth = React.lazy(() => import('./components/auth/Auth'));
+const UsernameSetup = React.lazy(() => import('./components/auth/UsernameSetup'));
+const CommunityFeed = React.lazy(() => import('./components/feed/CommunityFeed'));
+const WriteScreen = React.lazy(() => import('./components/story/WriteScreen'));
+const PrivateArchive = React.lazy(() => import('./components/story/PrivateArchive'));
+const ModerationDashboard = React.lazy(() => import('./components/moderation/ModerationDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/admin/AdminDashboard'));
+const Bookmarks = React.lazy(() => import('./components/social/Bookmarks'));
+const MyStories = React.lazy(() => import('./components/story/MyStories'));
+const CollaborativeHubs = React.lazy(() => import('./components/hub/CollaborativeHubs'));
+const HubCreation = React.lazy(() => import('./components/hub/HubCreation'));
+const Settings = React.lazy(() => import('./components/settings/Settings'));
+const Notifications = React.lazy(() => import('./components/social/Notifications'));
+const VerifyEmail = React.lazy(() => import('./components/auth/VerifyEmail'));
+const AnalyticsDashboard = React.lazy(() => import('./components/story/AnalyticsDashboard'));
+const Leaderboards = React.lazy(() => import('./components/leaderboard/Leaderboards'));
+const Achievements = React.lazy(() => import('./components/social/Achievements'));
 
 const StoryReaderRoute = React.lazy(() => import('./routes/StoryReaderRoute'));
 const UserProfileRoute = React.lazy(() => import('./routes/UserProfileRoute'));
@@ -137,7 +139,7 @@ function AppContent() {
   );
 
   return (
-    <div className="app-shell" style={{ fontFamily: 'var(--font-sans)', background: 'transparent', minHeight: '100vh' }}>
+    <div className="app-shell">
       {error && (
         <div className="toast" style={{
           position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
@@ -150,19 +152,19 @@ function AppContent() {
 
       <Routes>
         <Route path="/login" element={
-          <Suspense fallback={<div style={{ height: '100vh' }} />}>
+          <Suspense fallback={<div className="suspense-fallback" />}>
             <Auth onAuthenticated={checkAuthStatus} />
           </Suspense>
         } />
 
         <Route path="/username-setup" element={
-          <Suspense fallback={<div style={{ height: '100vh' }} />}>
+          <Suspense fallback={<div className="suspense-fallback" />}>
             <UsernameSetup user={user} onComplete={handleUsernameComplete} />
           </Suspense>
         } />
 
         <Route path="/verify-email" element={
-          <Suspense fallback={<div style={{ height: '100vh' }} />}>
+          <Suspense fallback={<div className="suspense-fallback" />}>
             <VerifyEmail />
           </Suspense>
         } />
@@ -302,23 +304,29 @@ function AppContent() {
 
         {/* Analytics Route */}
         <Route path="/analytics" element={
-          <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
+          <Suspense fallback={<div className="suspense-fallback" />}>
             <AnalyticsDashboard onBack={() => navigate('/community')} />
           </Suspense>
         } />
 
         {/* Leaderboards Route */}
         <Route path="/leaderboards" element={
-          <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
+          <Suspense fallback={<div className="suspense-fallback" />}>
             <Leaderboards onBack={() => navigate('/community')} />
+          </Suspense>
+        } />
+
+        <Route path="/achievements" element={
+          <Suspense fallback={<SkeletonAchievements />}>
+            <Achievements onBack={() => navigate('/community')} />
           </Suspense>
         } />
 
         <Route path="/admin" element={
           !authReady ? (
-            <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />
+            <div className="suspense-fallback" />
           ) : user && user.role === 'admin' ? (
-            <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
+            <Suspense fallback={<div className="suspense-fallback" />}>
               <AdminDashboard
                 user={user}
                 onBack={() => navigate('/community')}
@@ -331,9 +339,9 @@ function AppContent() {
 
         <Route path="/moderation" element={
           !authReady ? (
-            <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />
+            <div className="suspense-fallback" />
           ) : user && ['admin', 'moderator'].includes(user.role) ? (
-            <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-page)' }} />}>
+            <Suspense fallback={<div className="suspense-fallback" />}>
               <ModerationDashboard
                 user={user}
                 onBack={() => navigate('/community')}

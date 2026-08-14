@@ -10,6 +10,7 @@ const Notification = require('../models/Notification');
  * @param {string} [opts.fromUsername]
  * @param {string} [opts.storyId]
  * @param {string} [opts.storyTitle]
+ * @param {string} [opts.hubId]
  * @param {string} [opts.message]
  * @param {boolean} [opts.allowSelf=false]
  */
@@ -22,6 +23,7 @@ async function createNotification(opts) {
       fromUsername,
       storyId,
       storyTitle,
+      hubId,
       message,
       allowSelf = false
     } = opts;
@@ -40,6 +42,7 @@ async function createNotification(opts) {
       fromUsername,
       storyId,
       storyTitle,
+      hubId,
       message: message || ''
     });
 
@@ -52,4 +55,26 @@ async function createNotification(opts) {
   }
 }
 
-module.exports = { createNotification };
+function activeMembers(hub) {
+  return (hub?.members || []).filter((m) => m.isActive !== false);
+}
+
+async function notifyHubStaff(hub, opts) {
+  const jobs = activeMembers(hub)
+    .filter((m) => m.role === 'creator' || m.role === 'moderator')
+    .map((m) => createNotification({ ...opts, userInternalId: m.userInternalId }));
+  return Promise.all(jobs);
+}
+
+async function notifyHubMembers(hub, opts, { exclude = [], limit = 40 } = {}) {
+  const skip = new Set(exclude.map(String));
+  const jobs = [];
+  for (const m of activeMembers(hub)) {
+    if (skip.has(String(m.userInternalId))) continue;
+    jobs.push(createNotification({ ...opts, userInternalId: m.userInternalId }));
+    if (jobs.length >= limit) break;
+  }
+  return Promise.all(jobs);
+}
+
+module.exports = { createNotification, notifyHubStaff, notifyHubMembers };

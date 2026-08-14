@@ -30,30 +30,31 @@ export default function HubChatMessage({ msg, targetLang }) {
         }
     };
 
+    const time = msg.createdAt
+        ? new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        : '';
+
     return (
-        <div style={{ marginBottom: '15px' }}>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span><strong>{msg.senderUsername}</strong> · {new Date(msg.createdAt).toLocaleTimeString()}</span>
+        <div className="hub-chat__msg">
+            <div className="hub-chat__msg-head">
+                <span>
+                    <strong>{msg.senderUsername || 'Someone'}</strong>
+                    {time ? ` · ${time}` : ''}
+                </span>
                 <button
+                    type="button"
                     onClick={handleTranslate}
                     disabled={translating}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '2px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        opacity: 0.6,
-                    }}
+                    className={`hub-chat__translate${showTranslated ? ' hub-chat__translate--on' : ''}`}
                     title="Translate message"
+                    aria-label="Translate message"
                 >
-                    <DualArrowIcon size={14} color={showTranslated ? 'var(--blue-icon)' : 'var(--text-secondary)'} />
+                    <DualArrowIcon size={14} color="currentColor" />
                 </button>
             </div>
-            <div style={{ fontSize: '15px' }}>
-                {translating ? <span style={{ color: 'var(--text-tertiary)' }}>Translating...</span> : (showTranslated ? translatedText : msg.message)}
-            </div>
+            <p className={`hub-chat__msg-body${translating ? ' hub-chat__msg-body--muted' : ''}`}>
+                {translating ? 'Translating…' : (showTranslated ? translatedText : msg.message)}
+            </p>
         </div>
     );
 }

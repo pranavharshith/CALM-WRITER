@@ -29,6 +29,21 @@ export async function fetchHubs(visibility = '', theme = '', page = 1, limit = 2
     return await resp.json();
 }
 
+export async function fetchHubCues() {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/cues`, {
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function markHubSeen(hubId) {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/seen`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+    });
+    return await resp.json();
+}
+
 export async function fetchMyHubs() {
     const resp = await authenticatedFetch(`${API_BASE}/hubs/my-hubs`, {
         headers: getAuthHeaders(null),
@@ -183,6 +198,13 @@ export async function postHubChatMessage(hubId, message) {
 export async function deleteHubChatMessage(hubId, messageId) {
     const resp = await authenticatedFetch(`${API_BASE}/hubs/${hubId}/chat/${messageId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(null),
+    });
+    return await resp.json();
+}
+
+export async function fetchMyHubCreatorApplication() {
+    const resp = await authenticatedFetch(`${API_BASE}/hubs/my-application`, {
         headers: getAuthHeaders(null),
     });
     return await resp.json();

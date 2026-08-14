@@ -127,6 +127,27 @@
   /* Transitions — fluid motion */
   --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-spring: all 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* Layout — see docs/DEVICES.md */
+  --page-pad: clamp(16px, 4vw, 24px);
+  --tap: 44px;
+  --col-narrow: 680px;
+  --col-story: 720px;
+  --col-page: 800px;
+  --col-wide: 1240px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --vh: 100vh;
+  --bp-compact: 720px;
+  --bp-regular: 1024px;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --vh: 100dvh;
+  }
 }
 
 [data-theme='dark'] {

@@ -2,20 +2,27 @@
    12. WRITE SCREEN
    ──────────────────────────────────────────────────────────────── */
 .write-screen {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: var(--bg-page);
-  padding: var(--sp-5);
+  padding:
+    max(var(--page-pad), var(--safe-top))
+    max(var(--page-pad), var(--safe-right))
+    max(var(--page-pad), var(--safe-bottom))
+    max(var(--page-pad), var(--safe-left));
 }
 
 .write-screen__inner {
-  max-width: 700px;
+  max-width: var(--col-narrow);
   margin: 0 auto;
+  min-width: 0;
 }
 
 .write-screen__topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
   margin-bottom: var(--sp-5);
 }
 
@@ -152,7 +159,8 @@
 
 .write-screen__body-textarea {
   width: 100%;
-  height: 300px;
+  min-height: 200px;
+  height: clamp(200px, 42vh, 420px);
   font-size: var(--fs-lg);
   border: none;
   background: transparent;
@@ -167,7 +175,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
   margin-top: var(--sp-5);
+  position: sticky;
+  bottom: 0;
+  padding-bottom: var(--safe-bottom);
+  background: var(--glass-bg);
 }
 
 .write-screen__word-count {

@@ -1,5 +1,11 @@
 import React from 'react';
 
+function previewOf(story) {
+    const raw = (story.preview || story.text || '').trim();
+    if (!raw) return 'No preview.';
+    return raw.length > 200 ? `${raw.slice(0, 200).trim()}…` : raw;
+}
+
 export default function HubStoriesTab({
     isMember,
     showStoryForm,
@@ -9,116 +15,77 @@ export default function HubStoriesTab({
     onStoryTitleChange,
     onStoryTextChange,
     onCreateStory,
+    creating = false,
     stories,
     onReadStory,
 }) {
+    const words = storyText.split(/\s+/).filter(Boolean).length;
+
     return (
-        <div>
+        <div className="hub-room__body">
             {isMember && (
-                <button
-                    onClick={onToggleStoryForm}
-                    style={{
-                        marginBottom: '20px',
-                        padding: '10px 20px',
-                        background: 'var(--accent)',
-                        color: 'var(--accent-contrast)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '15px',
-                    }}
-                >
-                    {showStoryForm ? 'Cancel' : '+ New Story'}
-                </button>
+                <div className="hub-room__toolbar">
+                    <button type="button" className="btn btn--primary" onClick={onToggleStoryForm}>
+                        {showStoryForm ? 'Cancel' : 'New story'}
+                    </button>
+                </div>
             )}
 
             {showStoryForm && (
-                <form onSubmit={onCreateStory} style={{
-                    marginBottom: '30px',
-                    padding: '20px',
-                    background: 'var(--glass-bg-strong)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '4px',
-                }}>
+                <form onSubmit={onCreateStory} className="hub-compose">
                     <input
                         type="text"
-                        placeholder="Story title (optional)"
+                        className="form-input"
+                        placeholder="Title (optional)"
                         value={storyTitle}
                         onChange={onStoryTitleChange}
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            marginBottom: '10px',
-                            border: '1px solid var(--border)',
-                            borderRadius: '4px',
-                            fontSize: '15px',
-                            fontFamily: 'var(--font-serif)',
-                        }}
                     />
                     <textarea
-                        placeholder="Write your story..."
+                        className="form-textarea hub-compose__text"
+                        placeholder="Write your story…"
                         value={storyText}
                         onChange={onStoryTextChange}
                         rows={8}
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: '1px solid var(--border)',
-                            borderRadius: '4px',
-                            fontSize: '15px',
-                            fontFamily: 'var(--font-serif)',
-                            resize: 'vertical',
-                        }}
                     />
-                    <div style={{ marginTop: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {storyText.split(/\s+/).filter(w => w).length} words
+                    <div className="hub-compose__meta">
+                        <span className="hub-compose__count">{words} {words === 1 ? 'word' : 'words'}</span>
+                        <button
+                            type="submit"
+                            disabled={creating}
+                            className={`btn btn--primary${creating ? ' btn--loading' : ''}`}
+                        >
+                            {creating && <span className="spinner-ring" aria-hidden="true" />}
+                            {creating ? 'Publishing…' : 'Publish'}
+                        </button>
                     </div>
-                    <button
-                        type="submit"
-                        style={{
-                            marginTop: '10px',
-                            padding: '10px 20px',
-                            background: 'var(--accent)',
-                            color: 'var(--accent-contrast)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Publish
-                    </button>
                 </form>
             )}
 
             {stories.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                    No stories yet. {isMember && 'Be the first to write!'}
+                <div className="hubs-empty">
+                    <p className="hubs-empty__title">No stories yet</p>
+                    <p className="hubs-empty__copy">
+                        {isMember ? 'Be the first to write in this room.' : 'Members have not published here yet.'}
+                    </p>
                 </div>
             ) : (
-                stories.map((story) => (
-                    <div
-                        key={story._id}
-                        onClick={() => onReadStory(story)}
-                        style={{
-                            padding: '20px',
-                            background: 'var(--glass-bg-strong)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '4px',
-                            marginBottom: '15px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {story.title && (
-                            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px' }}>{story.title}</h3>
-                        )}
-                        <p style={{ margin: '0 0 10px 0', color: 'var(--text-primary)', lineHeight: '1.6' }}>
-                            {story.text?.substring(0, 200)}...
-                        </p>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                            by {story.authorUsername} · {story.likes} likes
-                        </div>
-                    </div>
-                ))
+                <div className="hub-stories">
+                    {stories.map((story) => (
+                        <button
+                            key={story._id}
+                            type="button"
+                            className="hub-story"
+                            onClick={() => onReadStory(story)}
+                        >
+                            {story.title && <h3 className="hub-story__title">{story.title}</h3>}
+                            <p className="hub-story__preview">{previewOf(story)}</p>
+                            <div className="hub-story__meta">
+                                {story.authorUsername ? `by ${story.authorUsername}` : 'Anonymous'}
+                                {story.likes != null ? ` · ${story.likes} ${story.likes === 1 ? 'like' : 'likes'}` : ''}
+                            </div>
+                        </button>
+                    ))}
+                </div>
             )}
         </div>
     );

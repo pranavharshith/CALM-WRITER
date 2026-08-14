@@ -3,7 +3,7 @@ import {
     LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import styles from '../AdminDashboardStyles';
+import styles from './AdminDashboardStyles';
 import { PageHeader, LargeKPICard, MetricCard, ChartCard, QuickStat, InfoPanel, COLORS } from './widgets';
 
 function OverviewDashboard({ stats, activity }) {

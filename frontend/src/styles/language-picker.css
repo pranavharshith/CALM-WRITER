@@ -4,18 +4,22 @@
 .language-picker {
   position: relative;
   width: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .language-picker__trigger {
   display: flex;
   align-items: center;
+  width: 100%;
+  text-align: left;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 10px 15px;
   cursor: pointer;
-  transition: all 0.2s;
+  font: inherit;
+  color: inherit;
+  transition: var(--transition);
 }
 
 .language-picker__trigger:hover {
@@ -48,7 +52,7 @@
 
 .language-picker__arrow {
   font-size: 0.8em;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .language-picker__dropdown {
@@ -68,20 +72,22 @@
 
 .language-picker__search {
   padding: 10px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .language-picker__search input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  background: var(--glass-bg);
+  color: var(--text-primary);
   outline: none;
 }
 
 .language-picker__search input:focus {
-  border-color: #667eea;
+  border-color: var(--accent);
 }
 
 .language-picker__list {
@@ -92,17 +98,23 @@
 .language-picker__item {
   display: flex;
   align-items: center;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
   padding: 10px 15px;
   cursor: pointer;
   transition: background 0.1s;
 }
 
 .language-picker__item:hover {
-  background: #f8f9fa;
+  background: var(--glass-bg-hover);
 }
 
 .language-picker__item.selected {
-  background: #f0f4ff;
+  background: var(--accent-light);
 }
 
 .language-picker__label {
@@ -129,6 +141,6 @@
 .language-picker__no-results {
   padding: 15px;
   text-align: center;
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 0.9em;
 }

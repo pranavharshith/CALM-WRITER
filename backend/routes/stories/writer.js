@@ -47,6 +47,12 @@ router.post('/submit', requireAuth, sanitizeStoryMiddleware, async (req, res) =>
 
     await story.save();
     logAuthEvent('STORY_PUBLISHED', req.internalId, true, { storyId: story._id });
+    try {
+      const { afterPublishedStory } = require('../../utils/writingDay');
+      await afterPublishedStory(req.internalId, story.wordCount, story.publishedAt || story.createdAt);
+    } catch (err) {
+      console.error('WritingDay record error:', err.message);
+    }
 
     res.json({
       success: true,

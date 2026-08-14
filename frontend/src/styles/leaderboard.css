@@ -3,17 +3,21 @@
    ──────────────────────────────────────────────────────────────── */
 .streak-widget {
   flex: 0 0 auto;
-  background: var(--glass-bg);
+  background: var(--glass-bg-strong);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border-radius: var(--radius-lg);
   padding: var(--sp-4) var(--sp-5) var(--sp-5);
-  box-shadow: var(--glass-shadow), var(--glass-inset);
+  box-shadow: var(--shadow-sm);
   width: 100%;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border);
 }
 
 .streak-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-secondary);
@@ -22,19 +26,176 @@
   margin-bottom: var(--sp-3);
 }
 
-.leaderboard {
-  flex: 1 1 auto;
-  min-height: 0;
+.streak-widget__badge-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  margin: calc((var(--tap) - 28px) / -2) calc((var(--tap) - 28px) / -2) calc((var(--tap) - 28px) / -2) 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.streak-widget__badge-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.streak-widget__badge-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--sage);
+}
+
+.streak-widget__top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.streak-widget__dial {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.streak-widget__ring {
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg);
+}
+
+.streak-widget__ring-track,
+.streak-widget__ring-value {
+  fill: none;
+  stroke-width: 3.5;
+}
+
+.streak-widget__ring-track {
+  stroke: var(--bg-active);
+}
+
+.streak-widget__ring-value {
+  stroke: var(--sage);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--transition);
+}
+
+.streak-widget__dial-label {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg);
+  align-items: center;
+  justify-content: center;
+}
+
+.streak-widget__num {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.streak-widget__unit {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.streak-widget__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.streak-widget__lead {
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+
+.streak-widget__meta {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.streak-widget__heat {
+  display: grid;
+  grid-template-rows: repeat(7, 8px);
+  grid-auto-flow: column;
+  grid-auto-columns: 8px;
+  gap: 3px;
+  overflow-x: auto;
+  max-width: 100%;
+  margin-bottom: var(--sp-3);
+  padding-bottom: 2px;
+}
+
+.streak-widget__cell {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: block;
+}
+
+.streak-widget__cell--0 { background: var(--bg-active); }
+.streak-widget__cell--1 { background: var(--sage-light); }
+.streak-widget__cell--2 { background: var(--sage); opacity: 0.55; }
+.streak-widget__cell--3 { background: var(--sage); }
+.streak-widget__cell--4 { background: var(--sage-dark); }
+
+.streak-widget__freeze {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+
+.streak-widget__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.streak-widget__write {
+  width: 100%;
+  min-height: var(--tap);
+  font-size: var(--fs-sm);
+}
+
+.leaderboard {
+  flex: 1 1 auto;
+  min-height: 20rem;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg-strong);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border-radius: var(--radius-lg);
   padding: var(--sp-5);
-  box-shadow: var(--glass-shadow), var(--glass-inset);
+  box-shadow: var(--shadow-sm);
   width: 100%;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border);
+}
+
+.streak-widget__ring-sk {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .leaderboard__body {

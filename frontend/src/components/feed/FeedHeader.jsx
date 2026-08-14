@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BellIcon } from '../../icons/Icons';
-import ThemeToggle from '../ThemeToggle';
+import ThemeToggle from '../common/ThemeToggle';
+
+function useCompactNav() {
+  const [compact, setCompact] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const sync = () => setCompact(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return compact;
+}
 
 function NavMore({ items }) {
   const [open, setOpen] = useState(false);
@@ -15,7 +30,8 @@ function NavMore({ items }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  if (!items.length) return null;
+  const visible = items.filter(Boolean);
+  if (!visible.length) return null;
 
   return (
     <div className="feed__more" ref={ref}>
@@ -31,7 +47,7 @@ function NavMore({ items }) {
       </button>
       {open && (
         <div className="feed__more-menu glass glass--strong" role="menu">
-          {items.map((item) => (
+          {visible.map((item) => (
             <button
               key={item.label}
               type="button"
@@ -51,6 +67,7 @@ function NavMore({ items }) {
 export default function FeedHeader({
   user,
   unreadCount,
+  hubAttention = 0,
   onWriteStory,
   onHubs,
   onProfile,
@@ -60,6 +77,9 @@ export default function FeedHeader({
   onAdmin,
   onModeration,
 }) {
+  const compact = useCompactNav();
+  const navigate = useNavigate();
+
   return (
     <div className="feed__header">
       <div className="feed__header-inner">
@@ -70,9 +90,10 @@ export default function FeedHeader({
             Write
           </button>
 
-          {onHubs && (
+          {onHubs && !compact && (
             <button onClick={onHubs} className="feed__nav-btn feed__nav-btn--outline">
               Hubs
+              {hubAttention > 0 && <span className="feed__nav-dot" aria-label="Hub activity" />}
             </button>
           )}
 
@@ -91,14 +112,17 @@ export default function FeedHeader({
             )}
 
             <NavMore items={[
+              compact && onHubs && { label: hubAttention > 0 ? `Hubs (${hubAttention})` : 'Hubs', onClick: onHubs },
+              compact && user?.username && { label: `@${user.username}`, onClick: () => onProfile(user.username) },
               onSettings && { label: 'Settings', onClick: onSettings },
               onAnalytics && { label: 'Writer stats', onClick: onAnalytics },
+              { label: 'Badges', onClick: () => navigate('/achievements') },
               user?.role === 'admin' && onAdmin && { label: 'Admin', onClick: onAdmin },
               onModeration && ['admin', 'moderator'].includes(user?.role) && { label: 'Moderation', onClick: onModeration },
-            ].filter(Boolean)} />
+            ]} />
           </div>
 
-          {user?.username && (
+          {user?.username && !compact && (
             <button onClick={() => onProfile(user.username)} className="feed__nav-btn feed__nav-btn--outline">
               @{user.username}
             </button>

@@ -47,3 +47,11 @@ export async function fetchUserStats() {
     if (!resp.ok) throw new Error(`Failed to fetch stats: ${resp.status}`);
     return await resp.json();
 }
+
+export async function fetchAchievements() {
+    const resp = await authenticatedFetch(`${API_BASE}/users/achievements`, {
+        headers: getAuthHeaders(null),
+    });
+    if (!resp.ok) throw new Error(`Failed to fetch achievements: ${resp.status}`);
+    return await resp.json();
+}

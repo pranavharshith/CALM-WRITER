@@ -171,22 +171,4 @@
 }
 
 /* Responsive: collapse sidebar on smaller screens */
-@media (max-width: 1024px) {
-  .feed__body {
-    flex-direction: column;
-  }
-
-  .feed__sidebar {
-    width: 100%;
-    max-width: 800px;
-  }
-
-  .feed__sidebar-sticky {
-    position: static;
-    width: 100%;
-    height: auto;
-    right: auto;
-    overflow: visible;
-    padding-right: 0;
-  }
-}
+/* split-shell stacking lives in layout.css */

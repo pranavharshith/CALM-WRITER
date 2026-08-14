@@ -2,9 +2,13 @@
    14. SETTINGS
    ──────────────────────────────────────────────────────────────── */
 .settings-page {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: var(--bg-page);
-  padding: var(--sp-5);
+  padding:
+    max(var(--page-pad), var(--safe-top))
+    max(var(--page-pad), var(--safe-right))
+    max(var(--page-pad), var(--safe-bottom))
+    max(var(--page-pad), var(--safe-left));
 }
 
 .settings-page__inner {
@@ -13,9 +17,11 @@
 }
 
 .settings-page__heading {
+  font-family: var(--font-serif);
   font-size: var(--fs-3xl);
   margin-bottom: var(--sp-2);
-  font-weight: normal;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 .settings-page__sub {
@@ -42,7 +48,7 @@
   font-size: var(--fs-lg);
   margin-bottom: var(--sp-5);
   padding-bottom: var(--sp-2);
-  border-bottom: 2px solid var(--text-primary);
+  border-bottom: 1px solid var(--glass-border);
   font-weight: 600;
 }
 
@@ -51,6 +57,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--sp-4);
 }
 
 .settings-row__label-title {
@@ -94,6 +101,7 @@
 /* Option group buttons (font size, scroll speed) */
 .settings-option-group {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-2);
 }
 
@@ -145,7 +153,7 @@
   background: var(--accent);
   color: var(--accent-contrast);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   cursor: pointer;
   font-size: var(--fs-md);
   font-weight: 600;
@@ -169,9 +177,9 @@
 }
 
 .settings-loading {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: var(--bg-page);
-  padding: var(--sp-5);
+  padding: var(--page-pad);
   text-align: center;
   color: var(--text-secondary);
   padding-top: 80px;

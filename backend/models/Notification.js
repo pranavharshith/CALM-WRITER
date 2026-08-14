@@ -5,12 +5,18 @@ const NotificationSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['follow', 'like', 'story_published', 'edit_request', 'edit_approved', 'thread_response', 'story_continuation', 'hub_approved']
+        enum: [
+            'follow', 'like', 'story_published', 'edit_request', 'edit_approved',
+            'thread_response', 'story_continuation',
+            'hub_approved', 'hub_rejected', 'hub_invite', 'hub_join_request',
+            'hub_role', 'hub_story'
+        ]
     },
     fromUserId: { type: String }, // who triggered the notification
     fromUsername: { type: String },
     storyId: { type: String }, // related story if applicable
     storyTitle: { type: String },
+    hubId: { type: String },
     message: { type: String },
     read: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }

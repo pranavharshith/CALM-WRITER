@@ -96,7 +96,7 @@ export function SkeletonAnalyticsRow() {
 
 export function SkeletonAnalyticsDashboard() {
     return (
-        <div className="container">
+        <div className="container" role="status" aria-busy="true" aria-live="polite">
             {/* Header */}
             <div className="flex-between mb-6" style={{ marginTop: '20px' }}>
                 <div>

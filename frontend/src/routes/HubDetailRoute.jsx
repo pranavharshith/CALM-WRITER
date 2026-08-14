@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCurrentUser } from '../api/api';
-import HubDetail from '../components/HubDetail';
+import HubDetail from '../components/hub/HubDetail';
 
 export default function HubDetailRoute() {
     const { hubId } = useParams();
@@ -15,7 +15,7 @@ export default function HubDetailRoute() {
     return (
         <HubDetail
             hubId={hubId}
-            onBack={() => navigate(-1)}
+            onBack={() => navigate('/hubs')}
             onReadStory={(story) => navigate(`/story/${story._id}`)}
             user={user}
         />

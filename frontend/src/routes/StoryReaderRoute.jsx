@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchStoryById } from '../api/api';
-import { SkeletonStoryReader } from '../components/SkeletonLoader';
+import { SkeletonStoryReader } from '../components/skeletons';
 import useMinLoadTime from '../hooks/useMinLoadTime';
 import { cacheHas, cacheGet, cachePut } from '../utils/screenCache';
-import StoryReader from '../components/StoryReader';
+import StoryReader from '../components/story/StoryReader';
 
 export default function StoryReaderRoute() {
     const { storyId } = useParams();
@@ -47,7 +47,7 @@ export default function StoryReaderRoute() {
     if (loading) return <SkeletonStoryReader />;
     if (!story) {
         return (
-            <div style={{ padding: '40px 20px', textAlign: 'center', minHeight: '100vh', background: 'transparent' }}>
+            <div className="page-shell" style={{ textAlign: 'center' }}>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>Story not found</p>
                 <button className="btn btn--secondary" onClick={() => navigate('/community')}>Back to feed</button>
             </div>

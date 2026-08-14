@@ -1,0 +1,193 @@
+/* ================================================================
+   LAYOUT SHELLS — docs/DEVICES.md
+   Width is fluid. Height is the visual viewport.
+   ================================================================ */
+
+html,
+body,
+#root {
+  min-height: var(--vh);
+}
+
+.app-shell {
+  min-height: var(--vh);
+  background: transparent;
+  font-family: var(--font-sans);
+}
+
+.page-shell {
+  min-height: var(--vh);
+  background: transparent;
+  color: var(--text-primary);
+  padding:
+    max(var(--page-pad), var(--safe-top))
+    max(var(--page-pad), var(--safe-right))
+    max(var(--page-pad), var(--safe-bottom))
+    max(var(--page-pad), var(--safe-left));
+}
+
+.page-shell__inner {
+  width: 100%;
+  max-width: var(--col-page);
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.page-shell__inner--narrow { max-width: var(--col-narrow); }
+.page-shell__inner--story { max-width: var(--col-story); }
+.page-shell__inner--page { max-width: var(--col-page); }
+.page-shell__inner--wide { max-width: var(--col-wide); }
+
+.split-shell {
+  max-width: var(--col-wide);
+  margin: 0 auto;
+  padding:
+    var(--sp-6)
+    max(var(--page-pad), var(--safe-right))
+    var(--sp-6)
+    max(var(--page-pad), var(--safe-left));
+  display: flex;
+  gap: var(--sp-6);
+  align-items: flex-start;
+}
+
+.split-shell__main {
+  flex: 1;
+  max-width: var(--col-page);
+  min-width: 0;
+}
+
+.split-shell__aside {
+  width: min(380px, 100%);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.split-shell__aside-inner {
+  position: sticky;
+  top: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  max-height: calc(var(--vh) - 120px);
+  overflow: auto;
+}
+
+.overlay-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(var(--page-pad), var(--safe-top))
+    max(var(--page-pad), var(--safe-right))
+    max(var(--page-pad), var(--safe-bottom))
+    max(var(--page-pad), var(--safe-left));
+  background: var(--overlay-scrim);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.overlay-shell__card {
+  width: min(var(--col-narrow), 100%);
+  max-height: calc(var(--vh) - 2 * var(--page-pad) - var(--safe-top) - var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.overlay-shell__body {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.overlay-shell__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.suspense-fallback {
+  min-height: var(--vh);
+  background: transparent;
+}
+
+@media (max-width: 1024px) {
+  .split-shell {
+    flex-direction: column;
+  }
+
+  .split-shell__aside {
+    width: 100%;
+    max-width: var(--col-page);
+  }
+
+  .split-shell__aside-inner {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 721px) {
+  .feed__more-item--compact-only {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .feed__nav-hide-compact {
+    display: none !important;
+  }
+
+  .feed__nav-btn {
+    min-height: var(--tap);
+  }
+
+  .btn-icon,
+  .feed__notif-btn,
+  .theme-toggle {
+    min-width: var(--tap);
+    min-height: var(--tap);
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-shell__layout {
+    flex-direction: column !important;
+  }
+
+  .admin-shell__sidebar {
+    width: 100% !important;
+    height: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+    max-height: 40vh;
+  }
+}
+
+@media (max-height: 540px) {
+  .overlay-shell {
+    align-items: flex-start;
+  }
+
+  .overlay-shell__card {
+    max-height: calc(var(--vh) - var(--page-pad) - var(--safe-top) - var(--safe-bottom));
+  }
+
+  .auth-container {
+    align-items: flex-start;
+  }
+}

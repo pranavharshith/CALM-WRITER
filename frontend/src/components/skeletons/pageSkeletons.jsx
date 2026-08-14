@@ -1,11 +1,11 @@
 import React from 'react';
-import { Sh, Circle, Row, Stack } from './atoms';
+import { Sh, Circle, Row, Stack, SkeletonPage } from './atoms';
 import { SkeletonStoryCard } from './storySkeletons';
 import { SkeletonLeaderboard } from './widgetSkeletons';
 
 export function AppSplashSkeleton() {
     return (
-        <div className="feed">
+        <SkeletonPage className="feed">
             {/* Sticky Header */}
             <div className="feed__header">
                 <div className="feed__header-inner">
@@ -23,10 +23,8 @@ export function AppSplashSkeleton() {
                 </div>
             </div>
 
-            {/* Body */}
-            <div className="feed__body">
-                {/* Main Content */}
-                <div className="feed__main">
+            <div className="split-shell">
+                <div className="split-shell__main">
                     {/* Search Placeholder */}
                     <Sh w="100%" h={42} r={4} style={{ marginBottom: 32 }} />
 
@@ -44,13 +42,13 @@ export function AppSplashSkeleton() {
                 </div>
 
                 {/* Sidebar */}
-                <div className="feed__sidebar">
-                    <div className="feed__sidebar-sticky">
+                <div className="split-shell__aside">
+                    <div className="split-shell__aside-inner">
                         <SkeletonLeaderboard />
                     </div>
                 </div>
             </div>
-        </div>
+        </SkeletonPage>
     );
 }
 
@@ -61,7 +59,7 @@ export function AppSplashSkeleton() {
 
 export function SkeletonProfile() {
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', padding: 20 }}>
+        <SkeletonPage style={{ background: 'transparent', padding: 20 }}>
             <div style={{ maxWidth: 800, margin: '0 auto' }}>
                 {/* Back button */}
                 <Sh w={160} h={13} style={{ marginBottom: 30 }} />
@@ -112,7 +110,7 @@ export function SkeletonProfile() {
                     ))}
                 </Stack>
             </div>
-        </div>
+        </SkeletonPage>
     );
 }
 
@@ -122,7 +120,7 @@ export function SkeletonProfile() {
 
 export function SkeletonSettings() {
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', padding: '20px' }}>
+        <SkeletonPage style={{ background: 'transparent', padding: '20px' }}>
             <div style={{ maxWidth: '700px', margin: '0 auto' }}>
                 {/* Back button */}
                 <Sh w={60} h={13} style={{ marginBottom: 30 }} />
@@ -196,7 +194,7 @@ export function SkeletonSettings() {
                     <Sh w={130} h={40} r={6} />
                 </div>
             </div>
-        </div>
+        </SkeletonPage>
     );
 }
 
@@ -233,7 +231,7 @@ export function SkeletonNotification() {
 
 export function SkeletonNotifications() {
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', padding: '20px' }}>
+        <SkeletonPage style={{ background: 'transparent', padding: '20px' }}>
             <div style={{ maxWidth: '700px', margin: '0 auto' }}>
                 {/* Back button */}
                 <Sh w={130} h={13} style={{ marginBottom: 24 }} />
@@ -251,6 +249,28 @@ export function SkeletonNotifications() {
                     ))}
                 </Stack>
             </div>
-        </div>
+        </SkeletonPage>
+    );
+}
+
+export function SkeletonAchievements() {
+    return (
+        <SkeletonPage>
+            <div className="page-shell__inner page-shell__inner--page achievements">
+                <Sh w={72} h={14} r={4} />
+                <Sh w={160} h={32} r={6} />
+                <Sh w="46%" h={14} r={4} />
+                <div className="achievements__case">
+                    <div className="achievements__grid">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div key={i} className="achievements__medal">
+                                <Sh w={84} h={84} r="50%" />
+                                <Sh w="70%" h={12} r={4} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </SkeletonPage>
     );
 }

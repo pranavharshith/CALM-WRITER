@@ -1,9 +1,8 @@
 /**
- * DEPRECATED: Use auth-consolidated.js instead
- * This file is kept for backward compatibility only
+ * Thin alias for middleware/auth.js admin/moderator guards.
  */
 
-const { requireAdmin, requireModerator } = require('./auth-consolidated');
+const { requireAdmin, requireModerator } = require('./auth');
 
 module.exports = {
     requireAdmin,

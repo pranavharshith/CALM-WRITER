@@ -46,6 +46,7 @@ const CollaborativeHubSchema = new mongoose.Schema({
         invitedBy: { type: String }, // who invited them
         contributionCount: { type: Number, default: 0 }, // stories/nodes contributed
         lastContributionAt: { type: Date }, // last story/chat contribution for cooldown
+        lastSeenAt: { type: Date },
         isActive: { type: Boolean, default: true } // can be suspended by hub mods
     }],
 

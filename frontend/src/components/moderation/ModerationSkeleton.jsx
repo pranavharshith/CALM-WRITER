@@ -1,5 +1,5 @@
 import React from 'react';
-import { SkeletonModerationCard } from '../SkeletonLoader';
+import { SkeletonModerationCard } from '../skeletons';
 
 export default function ModerationSkeleton({ count = 3 }) {
     return (

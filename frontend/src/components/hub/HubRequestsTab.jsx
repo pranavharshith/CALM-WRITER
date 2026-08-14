@@ -1,61 +1,53 @@
 import React from 'react';
 
-export default function HubRequestsTab({ pendingRequests, onApproveRequest }) {
+export default function HubRequestsTab({ pendingRequests, actingRequestId, onApproveRequest }) {
+    if (pendingRequests.length === 0) {
+        return (
+            <div className="hubs-empty">
+                <p className="hubs-empty__title">No pending requests</p>
+                <p className="hubs-empty__copy">Join requests will appear here for you to review.</p>
+            </div>
+        );
+    }
+
     return (
-        <div>
-            {pendingRequests.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                    No pending requests
-                </div>
-            ) : (
-                pendingRequests.map((request) => (
-                    <div key={request._id} style={{
-                        padding: '15px',
-                        background: 'var(--glass-bg-strong)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '4px',
-                        marginBottom: '10px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}>
-                        <div>
-                            <div style={{ fontWeight: '600' }}>{request.username}</div>
-                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                {new Date(request.createdAt).toLocaleDateString()}
+        <div className="hub-requests">
+            {pendingRequests.map((request) => {
+                const mark = (request.username || '?').trim().charAt(0).toUpperCase() || '?';
+                const acting = actingRequestId === request._id;
+                return (
+                    <div key={request._id} className="hub-request">
+                        <div className="hub-request__who">
+                            <span className="hub-card__mark" aria-hidden="true">{mark}</span>
+                            <div className="hub-request__copy">
+                                <p className="hub-request__name">{request.username}</p>
+                                <p className="hub-request__meta">
+                                    {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                                </p>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        <div className="hub-request__actions">
                             <button
+                                type="button"
                                 onClick={() => onApproveRequest(request._id, true)}
-                                style={{
-                                    padding: '8px 16px',
-                                    background: 'var(--accent)',
-                                    color: 'var(--accent-contrast)',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
+                                disabled={!!actingRequestId}
+                                className={`btn btn--primary${acting ? ' btn--loading' : ''}`}
                             >
+                                {acting && <span className="spinner-ring" aria-hidden="true" />}
                                 Approve
                             </button>
                             <button
+                                type="button"
                                 onClick={() => onApproveRequest(request._id, false)}
-                                style={{
-                                    padding: '8px 16px',
-                                    background: 'var(--text-secondary)',
-                                    color: 'var(--bg-page)',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
+                                disabled={!!actingRequestId}
+                                className="btn btn--secondary"
                             >
                                 Reject
                             </button>
                         </div>
                     </div>
-                ))
-            )}
+                );
+            })}
         </div>
     );
 }

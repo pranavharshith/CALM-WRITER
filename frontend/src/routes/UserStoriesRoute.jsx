@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCurrentUser } from '../api/api';
-import UserStories from '../components/UserStories';
+import UserStories from '../components/story/UserStories';
 
 export default function UserStoriesRoute() {
     const { username } = useParams();

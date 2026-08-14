@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import FollowingPage from '../components/FollowingPage';
+import FollowingPage from '../components/social/FollowingPage';
 
 export default function FollowingPageRoute() {
     const { username } = useParams();

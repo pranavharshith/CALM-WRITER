@@ -277,36 +277,35 @@ app.get('/health', async (req, res) => {
 const { authLimiter, reportLimiter, loginAttemptLimiter } = require('./middleware/rateLimiter');
 
 app.use('/auth', require('./routes/auth'));
-app.use('/auth', require('./routes/auth-refresh'));
-app.use('/auth', require('./routes/sessions')); // Logout and verify endpoints
+app.use('/auth', require('./routes/users/sessions')); // Logout and verify endpoints
 app.use('/stories', require('./routes/stories'));
 app.use('/users', require('./routes/users'));
 app.use('/admin', require('./routes/admin'));
-app.use('/reads', require('./routes/sessions'));
-app.use('/reactions', require('./routes/reactions'));
+app.use('/reads', require('./routes/users/sessions'));
+app.use('/reactions', require('./routes/social/reactions'));
 app.use('/threads', require('./routes/threads'));
-app.use('/leaderboards', require('./routes/leaderboards'));
+app.use('/leaderboards', require('./routes/social/leaderboards'));
 app.use('/moderation', reportLimiter, require('./routes/moderation'));
-app.use('/bookmarks', require('./routes/bookmarks'));
-app.use('/follows', require('./routes/follows'));
-app.use('/drafts', require('./routes/drafts'));
-app.use('/preferences', require('./routes/preferences'));
-app.use('/translate', require('./routes/translate'));
-app.use('/prompts', require('./routes/prompts'));
-app.use('/transparency', require('./routes/transparency'));
-app.use('/uploads', require('./routes/uploads'));
-app.use('/notifications', require('./routes/notifications'));
-app.use('/edit-requests', require('./routes/edit-requests'));
+app.use('/bookmarks', require('./routes/social/bookmarks'));
+app.use('/follows', require('./routes/social/follows'));
+app.use('/drafts', require('./routes/stories/drafts'));
+app.use('/preferences', require('./routes/users/preferences'));
+app.use('/translate', require('./routes/platform/translate'));
+app.use('/prompts', require('./routes/stories/prompts'));
+app.use('/transparency', require('./routes/platform/transparency'));
+app.use('/uploads', require('./routes/platform/uploads'));
+app.use('/notifications', require('./routes/social/notifications'));
+app.use('/edit-requests', require('./routes/stories/edit-requests'));
 
 // Collaborative Hubs routes
 // hub-management is mounted LAST because its GET /:hubId would otherwise shadow
 // more specific GET routes (e.g. /hubs/creator-applications, /hubs/my-application).
-app.use('/hubs', require('./routes/hub-creator-applications'));
-app.use('/hubs', require('./routes/hub-membership'));
-app.use('/hubs', require('./routes/hub-content'));
-app.use('/hubs', require('./routes/hub-chat'));
-app.use('/hubs', require('./routes/hub-applications'));
-app.use('/hubs', require('./routes/hub-management'));
+app.use('/hubs', require('./routes/hubs/creator-applications'));
+app.use('/hubs', require('./routes/hubs/membership'));
+app.use('/hubs', require('./routes/hubs/content'));
+app.use('/hubs', require('./routes/hubs/chat'));
+app.use('/hubs', require('./routes/hubs/applications'));
+app.use('/hubs', require('./routes/hubs/management'));
 
 // Initialize MinIO storage (graceful degradation if unavailable)
 const { initializeBucket, checkMinIOHealth } = require('./utils/minioStorage');

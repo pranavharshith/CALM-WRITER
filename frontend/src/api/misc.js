@@ -155,5 +155,8 @@ export async function translateText(contentId, contentType, text, targetLanguage
 
 export async function fetchDailyPrompt() {
     const resp = await fetch(`${API_BASE}/prompts/current`);
-    return await resp.json();
+    if (!resp.ok) throw new Error(`Failed to fetch prompt: ${resp.status}`);
+    const text = await resp.text();
+    if (!text) throw new Error('Empty prompt response');
+    return JSON.parse(text);
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sh, Circle, Row, Stack } from './atoms';
+import { Sh, Circle, Row, Stack, SkeletonPage } from './atoms';
 
 export function SkeletonStoryCard() {
     return (
@@ -131,7 +131,7 @@ export function SkeletonFeedPagination() {
 
 export function SkeletonStoryList({ count = 3 }) {
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', padding: '20px' }}>
+        <SkeletonPage style={{ background: 'transparent', padding: '20px' }}>
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
                 {/* Back button */}
                 <Sh w={130} h={13} style={{ marginBottom: 30 }} />
@@ -146,7 +146,7 @@ export function SkeletonStoryList({ count = 3 }) {
                     ))}
                 </Stack>
             </div>
-        </div>
+        </SkeletonPage>
     );
 }
 
@@ -157,7 +157,7 @@ export function SkeletonStoryList({ count = 3 }) {
 
 export function SkeletonStoryReader() {
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', padding: 20 }}>
+        <SkeletonPage style={{ background: 'transparent', padding: 20 }}>
             <div style={{ maxWidth: 660, margin: '0 auto' }}>
                 {/* Top bar */}
                 <Row style={{ justifyContent: 'space-between', marginBottom: 20 }}>
@@ -208,7 +208,7 @@ export function SkeletonStoryReader() {
                     </Stack>
                 </div>
             </div>
-        </div>
+        </SkeletonPage>
     );
 }
 
@@ -219,7 +219,7 @@ export function SkeletonStoryReader() {
 
 export function SkeletonWriteScreen() {
     return (
-        <div className="write-screen">
+        <SkeletonPage className="write-screen">
             <div className="write-screen__inner">
                 {/* Top bar */}
                 <div className="write-screen__topbar">
@@ -245,7 +245,7 @@ export function SkeletonWriteScreen() {
                     <Sh w={100} h={44} r={6} /> {/* Publish btn */}
                 </div>
             </div>
-        </div>
+        </SkeletonPage>
     );
 }
 

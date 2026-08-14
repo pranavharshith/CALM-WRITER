@@ -35,7 +35,7 @@ This is an **npm workspaces monorepo** — one root `package.json` with `backend
 3. **Start MinIO** (optional, for uploads)
 
    ```powershell
-   .\start-minio-docker.ps1
+   .\scripts\start-minio-docker.ps1
    ```
 
    Or run manually:

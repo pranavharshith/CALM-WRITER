@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCurrentUser } from '../api/api';
-import UserProfile from '../components/UserProfile';
+import UserProfile from '../components/social/UserProfile';
 
 export default function UserProfileRoute() {
     const { username } = useParams();

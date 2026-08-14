@@ -1,96 +1,82 @@
 import React from 'react';
+import { themeLabel } from './hubLabels';
 
-export default function HubHeader({ hub, isMember, onBack, onJoin, onLeaveClick }) {
+export default function HubHeader({
+    hub,
+    isMember,
+    canLeave,
+    joining = false,
+    onBack,
+    onJoin,
+    onLeaveClick,
+}) {
+    const mark = (hub.name || '?').trim().charAt(0).toUpperCase() || '?';
+    const description = (hub.description || '').trim();
+    const members = Number(hub.memberCount) || 0;
+    const stories = Number(hub.totalStories) || 0;
+    const tags = Array.isArray(hub.tags) ? hub.tags.slice(0, 4) : [];
+    const inviteOnly = hub.joinPolicy === 'invite_only' || hub.visibility === 'private';
+    const joinLabel = hub.joinPolicy === 'open' ? 'Join hub' : 'Request to join';
+
     return (
-        <div style={{
-            borderBottom: '1px solid var(--border)',
-            background: 'var(--glass-bg-strong)',
-            padding: '20px',
-        }}>
-            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-                <button
-                    onClick={onBack}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '20px',
-                        cursor: 'pointer',
-                        marginBottom: '15px',
-                    }}
-                >
-                    ← Back to Hubs
-                </button>
+        <>
+            <button type="button" onClick={onBack} className="btn-back">← Back to Hubs</button>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                    <div style={{ flex: 1 }}>
-                        <h1 style={{ margin: '0 0 10px 0', fontSize: '32px', fontWeight: '600' }}>
-                            {hub.name}
-                        </h1>
-                        <p style={{ margin: '0 0 15px 0', color: 'var(--text-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
-                            {hub.description}
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <span style={{
-                                padding: '5px 12px',
-                                background: 'var(--bg-subtle)',
-                                borderRadius: '12px',
-                                fontSize: '13px',
-                            }}>
-                                {hub.theme}
-                            </span>
-                            {hub.tags?.map((tag, idx) => (
-                                <span key={idx} style={{
-                                    padding: '5px 12px',
-                                    background: 'var(--blue-light)',
-                                    borderRadius: '12px',
-                                    fontSize: '13px',
-                                    color: 'var(--accent)',
-                                }}>
-                                    #{tag}
-                                </span>
-                            ))}
-                        </div>
+            <header className="hub-room__hero">
+                <div className="hub-room__identity">
+                    <div className="hub-room__brand">
+                        <span className="hub-room__mark" aria-hidden="true">{mark}</span>
+                        <h1 className="hub-room__title">{hub.name}</h1>
                     </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                        {!isMember ? (
-                            <button
-                                onClick={onJoin}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: 'var(--accent)',
-                                    color: 'var(--accent-contrast)',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontSize: '15px',
-                                    fontWeight: '500',
-                                }}
-                            >
-                                Request to Join
-                            </button>
-                        ) : (
-                            <button
-                                onClick={onLeaveClick}
-                                style={{
-                                    padding: '10px 20px',
-                                    background: 'var(--text-secondary)',
-                                    color: 'var(--bg-page)',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontSize: '15px',
-                                }}
-                            >
-                                Leave Hub
-                            </button>
+                    <p className={`hub-room__lede${description ? '' : ' hub-room__lede--empty'}`}>
+                        {description || 'No description yet.'}
+                    </p>
+                    <div className="hub-card__chips">
+                        <span className="hub-chip">{themeLabel(hub.theme)}</span>
+                        {hub.visibility === 'private' && (
+                            <span className="hub-chip hub-chip--private">Private</span>
                         )}
-                        <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '10px' }}>
-                            {hub.memberCount} members · {hub.totalStories} stories
-                        </div>
+                        {tags.map((tag) => (
+                            <span key={tag} className="hub-chip hub-chip--tag">#{tag}</span>
+                        ))}
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <div className="hub-room__actions">
+                    <div className="hub-room__stats">
+                        <div className="hub-room__stat">
+                            <span className="hub-room__stat-value">{members}</span>
+                            <span className="hub-room__stat-label">{members === 1 ? 'member' : 'members'}</span>
+                        </div>
+                        <div className="hub-room__stat">
+                            <span className="hub-room__stat-value">{stories}</span>
+                            <span className="hub-room__stat-label">{stories === 1 ? 'story' : 'stories'}</span>
+                        </div>
+                    </div>
+                    {!isMember && !inviteOnly && (
+                        <button
+                            type="button"
+                            className={`btn btn--primary${joining ? ' btn--loading' : ''}`}
+                            disabled={joining}
+                            onClick={onJoin}
+                        >
+                            {joining && <span className="spinner-ring" aria-hidden="true" />}
+                            {joining ? 'Sending…' : joinLabel}
+                        </button>
+                    )}
+                    {!isMember && inviteOnly && (
+                        <p className="hub-room__note">Invite only</p>
+                    )}
+                    {canLeave && (
+                        <button type="button" className="btn btn--secondary" onClick={onLeaveClick}>
+                            Leave hub
+                        </button>
+                    )}
+                    {isMember && !canLeave && (
+                        <p className="hub-room__note">You created this room</p>
+                    )}
+                </div>
+            </header>
+        </>
     );
 }

@@ -47,9 +47,15 @@ const UserSchema = new mongoose.Schema({
     calmMode: { type: Boolean, default: true },
     fontSize: { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
     autoScroll: { type: Boolean, default: false },
-    autoScrollSpeed: { type: Number, default: 50 },
-    preferredLanguage: { type: String, default: 'en' }
+    autoScrollSpeed: { type: String, default: 'medium' },
+    preferredLanguage: { type: String, default: 'en' },
+    dailyWordGoal: { type: Number, default: 300, min: 50, max: 2000 }
   },
+
+  freezeTokens: { type: Number, default: 0, min: 0 },
+  freezeMilestonesEarned: [{ type: Number }],
+  freezeUsedDates: [{ type: String }],
+  writingDaysBackfilled: { type: Boolean, default: false },
 
   // Profile Picture
   profilePicture: {

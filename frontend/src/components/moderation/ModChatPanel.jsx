@@ -71,16 +71,11 @@ export default function ModChatPanel({
         <button
           onClick={onSend}
           disabled={!chatMessage.trim() || submitting}
-          style={{
-            background: 'var(--sage-dark)',
-            color: 'var(--sage-contrast)',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            padding: '10px 20px',
-            fontSize: '0.9em',
-            cursor: 'pointer'
-          }}>
-          Send
+          className={`btn btn--positive${submitting ? ' btn--loading' : ''}`}
+          style={{ fontSize: '0.9em' }}
+        >
+          {submitting && <span className="spinner-ring" aria-hidden="true" />}
+          {submitting ? 'Sending…' : 'Send'}
         </button>
       </div>
     </div>

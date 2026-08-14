@@ -1,50 +1,46 @@
 import React from 'react';
 
-export default function HubTabs({ activeTab, onTabChange, isMember, isModerator, pendingRequestCount }) {
+const TABS = [
+    { id: 'stories', label: 'Stories' },
+    { id: 'members', label: 'Members' },
+    { id: 'chat', label: 'Chat', member: true },
+    { id: 'requests', label: 'Requests', moderator: true },
+];
+
+export default function HubTabs({
+    activeTab,
+    onTabChange,
+    isMember,
+    isModerator,
+    chatEnabled = true,
+    pendingRequestCount,
+    unreadChat = false,
+}) {
+    const visible = TABS.filter((tab) => {
+        if (tab.member && (!isMember || !chatEnabled)) return false;
+        if (tab.moderator && !isModerator) return false;
+        return true;
+    });
+
     return (
-        <div style={{
-            background: 'var(--glass-bg-strong)',
-            borderBottom: '1px solid var(--border)',
-            padding: '0 20px',
-        }}>
-            <div style={{
-                maxWidth: '1000px',
-                margin: '0 auto',
-                display: 'flex',
-                gap: '20px',
-            }}>
-                {['stories', 'members', isMember && 'chat', isModerator && 'requests'].filter(Boolean).map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => onTabChange(tab)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            borderBottom: activeTab === tab ? '2px solid var(--text-primary)' : '2px solid transparent',
-                            padding: '15px 0',
-                            cursor: 'pointer',
-                            fontSize: '15px',
-                            textTransform: 'capitalize',
-                            color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === tab ? '600' : '400',
-                        }}
-                    >
-                        {tab}
-                        {tab === 'requests' && pendingRequestCount > 0 && (
-                            <span style={{
-                                marginLeft: '6px',
-                                background: 'var(--rose)',
-                                color: 'var(--rose-contrast)',
-                                padding: '2px 6px',
-                                borderRadius: '10px',
-                                fontSize: '11px',
-                            }}>
-                                {pendingRequestCount}
-                            </span>
-                        )}
-                    </button>
-                ))}
-            </div>
+        <div className="hubs-tabs" aria-label="Hub sections">
+            {visible.map((tab) => (
+                <button
+                    key={tab.id}
+                    type="button"
+                    aria-pressed={activeTab === tab.id}
+                    className={`hubs-tab${activeTab === tab.id ? ' hubs-tab--active' : ''}`}
+                    onClick={() => onTabChange(tab.id)}
+                >
+                    {tab.label}
+                    {tab.id === 'requests' && pendingRequestCount > 0 && (
+                        <span className="hubs-tab__count">{pendingRequestCount}</span>
+                    )}
+                    {tab.id === 'chat' && unreadChat && (
+                        <span className="hubs-tab__dot" aria-label="New messages" />
+                    )}
+                </button>
+            ))}
         </div>
     );
 }

@@ -161,7 +161,7 @@ a {
    3. LAYOUT UTILITIES
    ──────────────────────────────────────────────────────────────── */
 .page {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: transparent;
   color: var(--text-primary);
 }

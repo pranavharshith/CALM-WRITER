@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCurrentUser } from '../api/api';
-import ThreadView from '../components/ThreadView';
+import ThreadView from '../components/thread/ThreadView';
 
 export default function ThreadViewRoute() {
     const { storyId } = useParams();

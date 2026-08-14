@@ -250,6 +250,15 @@ export function SettingsIcon(props) {
   );
 }
 
+export function MedalIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="8" r="5"></circle>
+      <path d="M8.5 12.5 7 21l5-3 5 3-1.5-8.5"></path>
+    </Svg>
+  );
+}
+
 export function SparkleIcon(props) {
   return (
     <Svg {...props}>

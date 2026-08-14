@@ -3,131 +3,123 @@ import { CrownIcon, StarIcon } from '../../icons/Icons';
 
 export default function HubMembersTab({
     isModerator,
+    isCreator = false,
     showInviteForm,
     onToggleInviteForm,
     inviteUsername,
     onInviteUsernameChange,
     onSendInvite,
+    inviting = false,
     members,
+    actingMemberId = null,
     onUpdateRole,
     onRemoveMember,
 }) {
     return (
-        <div>
+        <div className="hub-room__body">
             {isModerator && (
-                <button
-                    onClick={onToggleInviteForm}
-                    style={{
-                        marginBottom: '20px',
-                        padding: '10px 20px',
-                        background: 'var(--accent)',
-                        color: 'var(--accent-contrast)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                    }}
-                >
-                    {showInviteForm ? 'Cancel' : '+ Invite Member'}
-                </button>
+                <div className="hub-room__toolbar">
+                    <button type="button" className="btn btn--primary" onClick={onToggleInviteForm}>
+                        {showInviteForm ? 'Cancel' : 'Invite member'}
+                    </button>
+                </div>
             )}
 
             {showInviteForm && (
-                <form onSubmit={onSendInvite} style={{
-                    marginBottom: '20px',
-                    display: 'flex',
-                    gap: '10px',
-                }}>
+                <form onSubmit={onSendInvite} className="hub-invite-form">
                     <input
                         type="text"
-                        placeholder="Enter username"
+                        className="form-input"
+                        placeholder="Username"
                         value={inviteUsername}
                         onChange={onInviteUsernameChange}
-                        style={{
-                            flex: 1,
-                            padding: '10px',
-                            border: '1px solid var(--border)',
-                            borderRadius: '4px',
-                            fontSize: '15px',
-                            fontFamily: 'var(--font-serif)',
-                        }}
+                        autoComplete="username"
                     />
-                    <button type="submit" style={{
-                        padding: '10px 20px',
-                        background: 'var(--accent)',
-                        color: 'var(--accent-contrast)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                    }}>
-                        Send Invite
+                    <button
+                        type="submit"
+                        disabled={inviting}
+                        className={`btn btn--primary${inviting ? ' btn--loading' : ''}`}
+                    >
+                        {inviting && <span className="spinner-ring" aria-hidden="true" />}
+                        {inviting ? 'Sending…' : 'Send invite'}
                     </button>
                 </form>
             )}
 
-            <div style={{ display: 'grid', gap: '10px' }}>
-                {members.map((member) => (
-                    <div key={member.userInternalId} style={{
-                        padding: '15px',
-                        background: 'var(--glass-bg-strong)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}>
-                        <div>
-                            <div style={{ fontWeight: '600', fontSize: '15px' }}>
-                                {member.username}
-                                {member.role === 'creator' && (
-                                    <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                        <CrownIcon size={12} /> Creator
-                                    </span>
-                                )}
-                                {member.role === 'moderator' && (
-                                    <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                        <StarIcon size={12} /> Moderator
-                                    </span>
+            {members.length === 0 ? (
+                <div className="hubs-empty">
+                    <p className="hubs-empty__title">No members yet</p>
+                    <p className="hubs-empty__copy">This room is waiting for its first writer.</p>
+                </div>
+            ) : (
+                <div className="hub-people">
+                    {members.map((member) => {
+                        const mark = (member.username || '?').trim().charAt(0).toUpperCase() || '?';
+                        const contributions = Number(member.contributionCount) || 0;
+                        return (
+                            <div key={member.userInternalId} className="hub-person">
+                                <div className="hub-person__who">
+                                    <span className="hub-card__mark" aria-hidden="true">{mark}</span>
+                                    <div className="hub-person__copy">
+                                        <p className="hub-person__name">
+                                            {member.username}
+                                            {member.role === 'creator' && (
+                                                <span className="hub-card__role hub-card__role--creator">
+                                                    <CrownIcon size={12} /> Creator
+                                                </span>
+                                            )}
+                                            {member.role === 'moderator' && (
+                                                <span className="hub-card__role hub-card__role--moderator">
+                                                    <StarIcon size={12} /> Moderator
+                                                </span>
+                                            )}
+                                        </p>
+                                        <p className="hub-person__meta">
+                                            {contributions} {contributions === 1 ? 'contribution' : 'contributions'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {member.role !== 'creator' && (isCreator || (isModerator && member.role === 'member')) && (
+                                    <div className="hub-person__actions">
+                                        {isCreator && member.role === 'member' && (
+                                            <button
+                                                type="button"
+                                                className={`btn btn--secondary${actingMemberId === member.userInternalId ? ' btn--loading' : ''}`}
+                                                disabled={!!actingMemberId}
+                                                onClick={() => onUpdateRole(member.userInternalId, 'moderator')}
+                                            >
+                                                {actingMemberId === member.userInternalId && <span className="spinner-ring" aria-hidden="true" />}
+                                                Promote
+                                            </button>
+                                        )}
+                                        {isCreator && member.role === 'moderator' && (
+                                            <button
+                                                type="button"
+                                                className={`btn btn--secondary${actingMemberId === member.userInternalId ? ' btn--loading' : ''}`}
+                                                disabled={!!actingMemberId}
+                                                onClick={() => onUpdateRole(member.userInternalId, 'member')}
+                                            >
+                                                {actingMemberId === member.userInternalId && <span className="spinner-ring" aria-hidden="true" />}
+                                                Demote
+                                            </button>
+                                        )}
+                                        {(isCreator || member.role === 'member') && (
+                                            <button
+                                                type="button"
+                                                className="btn btn--ghost"
+                                                disabled={!!actingMemberId}
+                                                onClick={() => onRemoveMember(member.userInternalId)}
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                {member.contributionCount} contributions
-                            </div>
-                        </div>
-                        {isModerator && member.role !== 'creator' && (
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                {member.role === 'member' && (
-                                    <button
-                                        onClick={() => onUpdateRole(member.userInternalId, 'moderator')}
-                                        style={{
-                                            padding: '6px 12px',
-                                            background: 'var(--blue-light)',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                            fontSize: '13px',
-                                        }}
-                                    >
-                                        Promote
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => onRemoveMember(member.userInternalId)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        background: 'var(--rose-light)',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        fontSize: '13px',
-                                    }}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

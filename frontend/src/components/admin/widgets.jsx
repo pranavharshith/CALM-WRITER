@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from '../AdminDashboardStyles';
+import styles from './AdminDashboardStyles';
 
 export const COLORS = ['#0073bb', '#00a4a6', '#f7b500', '#e81123', '#00cc6a', '#8764b8'];
 

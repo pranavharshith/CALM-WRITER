@@ -1,6 +1,7 @@
 /* CALM WRITER — design system barrel. Tokens + section files. */
 @import './styles/tokens.css';
 @import './styles/base.css';
+@import './styles/layout.css';
 @import './styles/controls.css';
 @import './styles/story-card.css';
 @import './styles/feed.css';
@@ -9,5 +10,7 @@
 @import './styles/story-reader.css';
 @import './styles/settings.css';
 @import './styles/leaderboard.css';
+@import './styles/hubs.css';
+@import './styles/achievements.css';
 @import './styles/language-picker.css';
 @import './styles/glass-motion.css';

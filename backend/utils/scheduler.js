@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { logger } = require('../utils/logger');
+const { logger } = require('./logger');
 
 // Valid timezones (IANA timezone database)
 const VALID_TIMEZONES = [

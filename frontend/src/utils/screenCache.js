@@ -6,7 +6,7 @@
  * to a page they already visited recently.
  *
  * Usage:
- *   import { cacheGet, cachePut, cacheHas } from '../utils/screenCache';
+ *   import { cacheGet, cachePut, cacheHas } from './screenCache';
  *
  *   // Check before fetching
  *   if (cacheHas('feed:latest')) {

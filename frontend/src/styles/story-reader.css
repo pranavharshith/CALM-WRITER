@@ -2,20 +2,27 @@
    13. STORY READER
    ──────────────────────────────────────────────────────────────── */
 .reader {
-  min-height: 100vh;
+  min-height: var(--vh);
   background: var(--bg-page);
-  padding: var(--sp-5);
+  padding:
+    max(var(--page-pad), var(--safe-top))
+    max(var(--page-pad), var(--safe-right))
+    max(var(--page-pad), var(--safe-bottom))
+    max(var(--page-pad), var(--safe-left));
 }
 
 .reader__inner {
-  max-width: 660px;
+  max-width: var(--col-story);
   margin: 0 auto;
+  min-width: 0;
 }
 
 .reader__topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
   margin-bottom: var(--sp-5);
 }
 
@@ -23,6 +30,7 @@
   display: flex;
   gap: var(--sp-2);
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .reader__translate-btn {
@@ -99,8 +107,6 @@
 }
 
 .reader__content {
-  height: 70vh;
-  overflow-y: auto;
   background: var(--glass-bg-strong);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -108,6 +114,22 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow), var(--glass-inset);
   border: 1px solid var(--glass-border);
+  /* Keep a scroll pane so progress + /reads/track still measure this node */
+  max-height: calc(var(--vh) - 180px);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .reader__content {
+    padding: var(--sp-5);
+  }
+}
+
+@media (max-height: 540px) {
+  .reader__content {
+    max-height: calc(var(--vh) - 120px);
+  }
 }
 
 .reader__translating {
@@ -125,4 +147,8 @@
 .reader__no-story {
   padding: var(--sp-10);
   text-align: center;
+}
+
+.reader--calm .reader__content {
+  padding-top: var(--sp-10);
 }

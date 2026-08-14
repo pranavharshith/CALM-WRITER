@@ -10,29 +10,9 @@ export default function ThreadReportForm({
   submitting
 }) {
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'var(--overlay-scrim)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(4px)',
-      WebkitBackdropFilter: 'blur(4px)'
-    }}>
-      <div style={{
-        background: 'var(--glass-bg-strong)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--glass-border)',
-        boxShadow: 'var(--glass-shadow)',
-        padding: '32px',
-        maxWidth: '500px',
-        width: '90%'
-      }}>
+    <div className="overlay-shell" style={{ zIndex: 1000 }}>
+      <div className="overlay-shell__card glass glass--strong" style={{ padding: '32px', maxWidth: '500px' }}>
+        <div className="overlay-shell__body">
         <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '1.2em' }}>Report Content</h3>
 
         <div style={{ marginBottom: '16px' }}>
@@ -81,15 +61,10 @@ export default function ThreadReportForm({
           <button
             onClick={onSubmit}
             disabled={submitting}
-            style={{
-              background: 'var(--rose)',
-              color: 'var(--rose-contrast)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              padding: '10px 20px',
-              cursor: submitting ? 'not-allowed' : 'pointer'
-            }}>
-            {submitting ? 'Submitting...' : 'Submit Report'}
+            className={`btn btn--danger${submitting ? ' btn--loading' : ''}`}
+          >
+            {submitting && <span className="spinner-ring" aria-hidden="true" />}
+            {submitting ? 'Submitting…' : 'Submit Report'}
           </button>
           <button
             onClick={onCancel}
@@ -103,6 +78,7 @@ export default function ThreadReportForm({
             }}>
             Cancel
           </button>
+        </div>
         </div>
       </div>
     </div>

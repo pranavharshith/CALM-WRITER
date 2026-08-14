@@ -28,3 +28,18 @@ export function Stack({ gap = 10, children, style = {} }) {
         </div>
     );
 }
+
+/** Full-page T0 wrapper — reserved height + a11y busy state. */
+export function SkeletonPage({ children, className = '', style = {} }) {
+    return (
+        <div
+            className={`page-shell ${className}`.trim()}
+            role="status"
+            aria-busy="true"
+            aria-live="polite"
+            style={style}
+        >
+            {children}
+        </div>
+    );
+}

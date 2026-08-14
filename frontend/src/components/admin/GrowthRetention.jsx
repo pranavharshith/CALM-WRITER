@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from '../AdminDashboardStyles';
+import styles from './AdminDashboardStyles';
 
 import { PageHeader, LargeKPICard, MetricCard, ChartCard, QuickStat, InfoPanel } from './widgets';
 

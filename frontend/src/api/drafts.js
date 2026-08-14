@@ -1,10 +1,10 @@
 import { API_BASE, authenticatedFetch, getAuthHeaders } from './client';
 
-export async function saveDraft(title, text, draftId = null) {
+export async function saveDraft(title, text, draftId = null, promptId = null) {
     const resp = await authenticatedFetch(`${API_BASE}/drafts/save`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ title, text, draftId }),
+        body: JSON.stringify({ title, text, draftId, promptId }),
     });
     return await resp.json();
 }
